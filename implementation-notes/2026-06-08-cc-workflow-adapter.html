@@ -1,0 +1,60 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>cc-workflow adapter — 2026-06-08</title>
+<style>body{font:13px/1.4 ui-monospace,monospace;max-width:900px;margin:2em auto;padding:0 1em}table{border-collapse:collapse;width:100%;margin:1em 0}td,th{border:1px solid #ccc;padding:4px 8px;vertical-align:top}th{background:#eee;text-align:left}code{background:#f4f4f4;padding:1px 4px}</style>
+<h1>cc-workflow source adapter</h1>
+<p>Task: implement <code>cc-workflow</code> source adapter for pi-lookback per spec from planner subagent. Append-only log.</p>
+
+<h2>Decisions</h2>
+<table>
+<tr><th>id</th><th>what</th><th>why</th></tr>
+<tr><td>D-1</td><td>Adapter exports both <code>sniff(filePath,firstLine)</code> and a new optional <code>sniffFile(filePath)</code>. <code>sniffSource</code> extended with a second pass that tries <code>sniffFile</code> on adapters that export it.</td><td>Pretty-printed JSON ⇒ <code>readFirstJsonLine</code> returns null ⇒ adapters never get called. The two-pass design keeps pi/cc on the cheap O(1) firstLine path and only opens the file when nothing else claimed it.</td></tr>
+<tr><td>D-2</td><td>Synthesize 1 leading <code>kind:'user'</code> + N <code>kind:'assistant'</code> entries.</td><td>Avoids special-casing <code>summary.js</code> (firstPrompt/userMessageCount/firstUser lookups all work). Cost = one fake row.</td></tr>
+<tr><td>D-3</td><td><code>sessionMeta.cwd = doc.scriptPath</code>.</td><td>Library row's project column shows the workflow script path — most useful affordance per spec §5.</td></tr>
+<tr><td>D-4</td><td>Linear timestamp interpolation across <code>[startedAt, finishedAt]</code>.</td><td>Journal items have no timestamps; library/trace UI assume monotonic order.</td></tr>
+<tr><td>D-5</td><td><code>decodeProjectDir()</code> returns empty string.</td><td>projectKey is a runId, not an encoded path; nothing useful to decode. summary's resolveProjectPath chain hits <code>cwd</code> first anyway (D-3).</td></tr>
+<tr><td>D-6</td><td>Early-return <code>null</code> for <code>cc-workflow</code> in <code>buildInitialInput</code>.</td><td>Workflows have no "initial input" concept; falling through to pi path would call <code>loadProjectContextFiles</code> against a file (scriptPath), not a dir, risking explode.</td></tr>
+<tr><td>D-7</td><td>Registry order: pi, claude-code, cc-workflow.</td><td>cc-workflow's <code>sniffFile</code> opens a file; pi/cc decide on the already-read first line. Putting cc-workflow last preserves cheap paths.</td></tr>
+<tr><td>D-8</td><td>Update <code>setSessionsRoot(root)</code> back-compat shim to also pass <code>'cc-workflow': null</code>.</td><td>So existing tests that mount FIX as pi-only don't leak cc-workflow rows from $HOME.</td></tr>
+</table>
+
+<h2>Tradeoffs</h2>
+<table>
+<tr><td>T-1</td><td>Synthetic user vs. patching summary.js: chose synthetic (D-2) over conditional <code>firstPrompt</code> logic. Net: tiny over-count on userMessageCount but zero churn in summary.js (used by both pi+cc).</td></tr>
+<tr><td>T-2</td><td>Two-pass sniff vs. a registered "I always claim .json files" adapter: two-pass keeps the contract minimal and per-adapter cost is bounded (64KB read, only when first pass fails).</td></tr>
+</table>
+
+<h2>Open / followups</h2>
+<table>
+<tr><td>L-1</td><td>public/app.js initial-input ternary will pick the pi message for cc-workflow source. Backend returns null so the UI shows the empty state — acceptable, but the message text is misleading if someone reads it. Frontend out-of-scope per task constraints; flag for reviewer.</td></tr>
+<tr><td>L-2</td><td>If journals ever exceed a few MB, <code>JSON.parse</code> entire file is suboptimal. Same 256MB hard cap as siblings; document as known limitation.</td></tr>
+</table>
+
+<h2>Test results</h2>
+<pre>node test/cc-workflow.test.js → 12/12 passed
+node test/parser.test.js      → 10/10 passed
+node test/api.test.js         → 15/15 passed</pre>
+<hr/>
+<h2>Fix pass — review findings applied</h2>
+<table border="1" cellpadding="4">
+<tr><th>ID</th><th>Kind</th><th>File:line</th><th>Note</th></tr>
+<tr><td>D-fix-1</td><td>D</td><td>src/sources/cc-workflow.js:~165</td><td>Correctness MINOR #1: entry id is now <code>agent-${i}</code> (loop index, always unique) instead of <code>agent-${j.index ?? i}</code> which could collide on sparse/duplicated journal indices and silently mask entries via Array.find.</td></tr>
+<tr><td>D-fix-2</td><td>D</td><td>src/sources/cc-workflow.js:~145</td><td>Correctness MINOR #2: synth-user ts is now <code>startedAt - 1ms</code> so it strictly precedes assistant[0] for monotonic-ts consumers.</td></tr>
+<tr><td>D-fix-3</td><td>D</td><td>src/sources/cc-workflow.js:~120</td><td>Correctness MINOR #3: when startedAt missing but finishedAt present, fall back to finishedAt rather than dropping all timing.</td></tr>
+<tr><td>D-fix-4</td><td>D</td><td>src/sources/cc-workflow.js:decodeProjectDir</td><td>NIT: documented as deliberate stub in JSDoc.</td></tr>
+<tr><td>D-fix-5</td><td>D</td><td>src/sources/cc-workflow.js:~160</td><td>NIT: per-entry text cap MAX_ENTRY_TEXT_BYTES=1MB with textTruncated flag, matching pi/cc per-line cap spirit.</td></tr>
+<tr><td>D-fix-6</td><td>D</td><td>src/sources/cc-workflow.js:~140</td><td>NIT: synth user falls back to <code>run ${runId}</code> when both name/status empty (replaces " ()").</td></tr>
+<tr><td>D-fix-7</td><td>D</td><td>src/sources/index.js:sniffSource</td><td>NIT: skip full-file sniffFile pass when firstLine parsed cleanly but no adapter claimed it — saves a 64KB read on random JSON.</td></tr>
+<tr><td>D-fix-8</td><td>D</td><td>src/scanner.js:defaultSessionsRoots</td><td>NIT: dropped redundant env-var re-reads; trust adapter.defaultRoot() (env-var name now lives in one place).</td></tr>
+<tr><td>D-fix-9</td><td>D</td><td>public/index.html, public/app.js</td><td>H-1: removed hard-coded source options; loadGlobalStats now populates #fSource from stats.sourceCounts so cc-workflow auto-appears.</td></tr>
+<tr><td>D-fix-10</td><td>D</td><td>public/styles.css, src/export-html.js</td><td>H-2: added .source-cc-workflow (green) badge color in both library CSS and exported-HTML inline CSS.</td></tr>
+<tr><td>D-fix-11</td><td>D</td><td>public/app.js (system-prompt banner)</td><td>M-1: three-way label — cc-workflow now shows "run journals do not capture a rendered system prompt." instead of being mislabeled as pi.</td></tr>
+<tr><td>D-fix-12</td><td>D</td><td>fixtures/cc-workflow/</td><td>BLOCKER: copied 3 runs (mq5hmxa2-1, mq5es02x-1, mq5j6x1t-1) into committed fixtures; rewrote mq5hmxa2 scriptPath to a relative form; test now uses fixtures, dropped haveLive skip branch.</td></tr>
+<tr><td>D-fix-13</td><td>D</td><td>test/cc-workflow.test.js</td><td>TESTS HIGH/MEDIUM: added positive synthetic discover, sniffFile-positive, buildSessionSummary, finishedAt-fallback, and id-collision tests; loosened entry-count assertions to filter by kind.</td></tr>
+<tr><td>D-fix-14</td><td>D</td><td>test/api.test.js</td><td>TESTS HIGH: added cc-workflow source assertion (sourceCounts and ?source=cc-workflow filter).</td></tr>
+<tr><td>D-fix-15</td><td>D</td><td>test/metrics.js</td><td>TESTS HIGH: added cc-workflow to CLI allow-list, activeRoots branch, and M8 threshold (3 like cc).</td></tr>
+<tr><td>L-fix-1</td><td>L</td><td>signals on synth-only sessions</td><td>L-1 noted: long_no_tool_stretch may fire on cc-workflow sessions (each phase has no assistant-level toolCalls). Arguably correct; deferred per "noise not defect".</td></tr>
+<tr><td>L-fix-2</td><td>L</td><td>public/app.js renderTokenTimeline</td><td>M-3 noted: timeline silently empty for usage-less sessions. Deferred — placeholder is polish; behavior is non-crashing.</td></tr>
+<tr><td>L-fix-3</td><td>L</td><td>public/app.js row model column</td><td>M-2 noted: empty model/cost/tokens cells. Deferred — non-crashing.</td></tr>
+<tr><td>X-fix-1</td><td>X</td><td>scanner.js env reads</td><td>Reviewer NIT-#4 declined? No — applied. Kept here as record of acting on a NIT.</td></tr>
+</table>

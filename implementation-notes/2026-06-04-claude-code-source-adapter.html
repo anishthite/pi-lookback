@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spec — Claude Code source adapter for pi-lookback</title>
+<meta name="task" content="Extend pi-lookback to ingest Claude Code session JSONL via a new source-adapter layer; unified library across pi + Claude Code">
+<meta name="date-started" content="2026-06-04">
+<meta name="date-updated" content="2026-06-04">
+<meta name="status" content="shipped">
+<meta name="blast-radius" content="med">
+<meta name="tags" content="adapter,claude-code,parser,multi-source,gui">
+<meta name="related" content="2026-06-04-mvp-implementation.html,2026-06-04-combine-lookback-plan-metrics.html">
+<style>
+  body { font: 14px/1.45 -apple-system, system-ui, sans-serif; max-width: 900px; margin: 1.5rem auto; padding: 0 1rem; color: #111; }
+  h1 { font-size: 20px; margin: 0 0 .25rem; }
+  h2 { font-size: 15px; margin: 1.4rem 0 .4rem; border-bottom: 1px solid #ddd; padding-bottom: .2rem; }
+  table { border-collapse: collapse; width: 100%; margin: .4rem 0 .8rem; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: #f6f6f6; font-weight: 600; }
+  code, pre { font-family: ui-monospace, Menlo, monospace; }
+  code { background: #f1f1f1; padding: 1px 4px; border-radius: 3px; font-size: 12.5px; }
+  .blast-low { color: #2a7a2a; } .blast-med { color: #b85c00; } .blast-high { color: #b00020; font-weight: 600; }
+  .meta { color: #555; font-size: 12.5px; margin-bottom: .8rem; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 2px 14px; font-size: 13px; margin: .4rem 0 1rem; }
+  .kv b { color: #444; font-weight: 600; }
+  ul { margin: .3rem 0 .8rem 1.2rem; padding: 0; } li { margin: .15rem 0; }
+  .sev-required { color: #b00020; font-weight: 600; } .sev-recommended { color: #b85c00; }
+</style>
+</head>
+<body>
+
+<h1>Claude Code source adapter for pi-lookback</h1>
+<p class="meta"><code>main</code> · worktree <code>/Users/anishthite/workspace/pi-lookback</code> · 2026-06-04 · status <b>shipped</b> · blast <span class="blast-med">med</span></p>
+
+<h2>Summary</h2>
+<div class="kv">
+  <b>Goal</b><div>Make pi-lookback source-agnostic: ingest both pi sessions (<code>~/.pi/agent/sessions/</code>) and Claude Code sessions (<code>~/.claude/projects/&lt;path-encoded&gt;/*.jsonl</code>) through a pluggable source-adapter layer; unified library view with a <code>source</code> filter.</div>
+  <b>User decision</b><div>Unified library + source filter (single list, sortable by recency across both agents).</div>
+  <b>Surface</b><div>New <code>src/sources/{pi,claude-code,index}.js</code>; <code>src/parser.js</code> becomes a dispatch shim; <code>src/scanner.js</code>, <code>src/summary.js</code>, <code>src/signals.js</code>, <code>src/api.js</code>, <code>server.js</code>, <code>public/app.js</code> get source-awareness; new fixtures for Claude Code; new test pass.</div>
+  <b>Constraints</b><div>Read-only (M9 gate preserved). No new runtime deps. Node ≥18. Existing pi gates must still pass.</div>
+</div>
+
+<h2>D-1 · Architecture decision: extend, not fork</h2>
+<table>
+  <tr><th>Choice</th><td>Source-adapter layer inside the existing pi-lookback codebase.</td></tr>
+  <tr><th>Rejected alternative</th><td>Fork as <code>claude-lookback</code>. Would duplicate scanner/summary/signals/api/export-html/server/UI (~85% of LOC) for no semantic gain; loses cross-agent recency browsing.</td></tr>
+  <tr><th>Rationale</th><td>Schemas diverge only at the parser layer. Everything downstream consumes a normalized entry stream. One UI, one search, one signals/metrics harness.</td></tr>
+  <tr><th>Reversibility</th><td>High. Adapters are isolated under <code>src/sources/</code>; reverting to pi-only is a one-line registry change.</td></tr>
+</table>
+
+<h2>D-2 · Adapter contract (provisional — final shape after planner)</h2>
+<table>
+  <tr><th>Each adapter exports</th><td><code>{ id, defaultRoot, discover(root), parseFile(path), normalize(rawEntry) }</code></td></tr>
+  <tr><th><code>discover(root)</code></th><td>Yields <code>{ sessionPath, projectCwd, sessionId }</code>. pi: walks <code>~/.pi/agent/sessions/</code>. claude-code: walks <code>~/.claude/projects/</code>, decodes dir name → cwd.</td></tr>
+  <tr><th><code>normalize</code></th><td>Returns the existing pi-lookback normalized entry shape: <code>{ id, parentId, ts, kind, role?, text?, toolName?, toolArgs?, toolResult?, bash?, usage?, model?, raw }</code>. <code>kind</code> is the rendered category; unknown raw types map to <code>kind: "unknown"</code> with the original payload in <code>raw</code>.</td></tr>
+  <tr><th>Sidechains</th><td>Claude Code's <code>isSidechain: true</code> entries set <code>kind: "message"</code> with a <code>sidechain: true</code> flag; renderer adds a subagent badge.</td></tr>
+</table>
+
+<h2>Q-1 · Open questions (pending scout + researcher)</h2>
+<ul>
+  <li><b>Q-1.1</b> — Compaction equivalent in Claude Code: does it emit a discrete event or is it inferred from <code>isCompactSummary</code> on a system/user message? (Researcher to confirm.)</li>
+  <li><b>Q-1.2</b> — Should <code>queue-operation</code>, <code>ai-title</code>, <code>last-prompt</code>, <code>file-history-snapshot</code>, <code>permission-mode</code> entries be rendered or skipped? Lean: render as collapsible "system" cards by default, hidden behind a toggle.</li>
+  <li><b>Q-1.3</b> — One <code>.jsonl</code> = one session always? Or do resume/continue flows span files? (Affects scanner grouping.)</li>
+  <li><b>Q-1.4</b> — Token usage field path on Claude Code assistant entries (so cost rollup works).</li>
+  <li><b>Q-1.5</b> — Which pi-specific signals (<code>branch_summary</code>, <code>model_change</code>, <code>compaction</code>-as-event) need source-gating vs generalization?</li>
+</ul>
+
+<h2>A-2 · Live-corpus verification (closes Q-1.1 / Q-1.3 / Q-1.4 / Q-1.5)</h2>
+<p>Empirical scan of <code>~/.claude/projects/</code> on this machine: 11 project dirs, 481 main + 24 subagent .jsonl, ~8000 entries.</p>
+<table>
+  <tr><th>Question</th><th>Live-corpus answer</th><th>Implication</th></tr>
+  <tr><td>Q-1.1 compaction shape</td><td><b>Zero</b> <code>system.compact_boundary</code>, zero top-level <code>summary</code>, zero <code>user.isCompactSummary:true</code> in this corpus.</td><td>Ship compaction handling forward-compat (all 3 shapes per schema §6) but the M8 signal gate cannot require compaction-derived signals to fire on CC sessions.</td></tr>
+  <tr><td>Q-1.3 sessions span files?</td><td>1 <code>&lt;sessionId&gt;.jsonl</code> = 1 session. <code>/resume</code> appends. <code>/fork</code> = new file with <code>forkedFrom</code> (0 in this corpus). Subagents in <code>agent-*.jsonl</code> sibling files or <code>subagents/</code> subdir.</td><td>Scanner treats one .jsonl as one session for the library list; subagent files surfaced as child rows or skipped in MVP (followup).</td></tr>
+  <tr><td>Q-1.4 usage location</td><td>Per-assistant-entry <code>message.usage = {input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens, cache_creation:{ephemeral_5m, ephemeral_1h}, ...}</code>. <b>No <code>cost</code> field</b> on the wire.</td><td>Adapter computes <code>entry.cost</code> via model×usage price table; pricing module is a small lookup keyed by <code>message.model</code>. high_cost signal stays unchanged downstream.</td></tr>
+  <tr><td>Q-1.5 pi-specific signal gating</td><td>failed_bash, compaction_heavy, verification_missing (bash-regex variant), repeated_failed_command — all rely on the <code>bashExecution</code> kind that pi parser synthesizes from a pi-specific message subrole. CC has no such subrole; Bash is just a <code>tool_use</code> with <code>name:&quot;Bash&quot;</code>.</td><td>Adapter synthesizes <code>kind:&quot;bashExecution&quot;</code> from CC's Bash tool_use + matching toolUseResult (stdout/stderr/exit code present in toolUseResult). Signals then work uniformly across both sources. compaction_heavy stays pi-only until CC corpus shows compaction.</td></tr>
+  <tr><td>Bonus: header line</td><td>No <code>system.init</code> in this corpus. First line is <code>queue-operation</code> (455/481), <code>permission-mode</code> (25), <code>ai-title</code> (1).</td><td>Session-meta synthesizer sniffs cwd/version/gitBranch from the first entry that carries them (first <code>user</code> or <code>assistant</code>); not from a header.</td></tr>
+  <tr><td>Bonus: sidechain prevalence</td><td>~30% of entries (1252 asst + 917 user + 26 attach).</td><td>Renderer needs a visible subagent badge; not optional.</td></tr>
+  <tr><td>Bonus: tool-pair invariant</td><td>2426 unique <code>tool_use.id</code> = 2426 unique <code>tool_result.tool_use_id</code>. Perfect 1:1.</td><td>Adapter joins by id alone; no fallback ordering heuristic needed.</td></tr>
+  <tr><td>Bonus: multi-shard assistants</td><td>1616 <code>message.id</code> values appear on &gt;1 JSONL line (~33%).</td><td>Adapter groups by <code>message.id</code> for usage rollup; keeps per-shard entries in the timeline.</td></tr>
+  <tr><td>Bonus: agent attribution</td><td>2195 entries with <code>agentId</code>, 0 with <code>agentName</code>.</td><td>Subagent badge shows <code>agentId</code> only in MVP.</td></tr>
+  <tr><td>Bonus: user.message.content shape</td><td>Array on 2459 entries, string on 705.</td><td>Adapter handles both.</td></tr>
+  <tr><td>Bonus: types absent in this corpus</td><td>summary, result, mode, custom-title, agent-name, agent-setting, bridge-session, started, saved_hook_context, progress.</td><td>MVP renderer adds no special-case handlers for these; all fall through to <code>kind:&quot;unknown&quot;</code>. Forward-compat code only.</td></tr>
+  <tr><td>Bonus: models in corpus</td><td>claude-opus-4-7, claude-haiku-4-5, occasional <code>&lt;synthetic&gt;</code>.</td><td>Cost price-table needs these two model ids at minimum.</td></tr>
+</table>
+
+<h2>A-1 · Working assumptions</h2>
+<ul>
+  <li><b>A-1.1</b> — pi backwards compatibility: every existing acceptance gate (M1–M9 from <code>docs/interface-plan.md</code>) must still pass after the refactor. Verified by re-running <code>test/metrics.js</code> against <code>~/.pi/agent/sessions</code>.</li>
+  <li><b>A-1.2</b> — Default behavior: <code>node server.js</code> autodiscovers both pi and Claude Code roots if they exist. <code>--source pi|claude-code|both</code> flag overrides. <code>--sessions &lt;dir&gt;</code> still works for either (auto-detected by content sniff or explicit <code>--source</code>).</li>
+  <li><b>A-1.3</b> — Library row gets a new <code>source</code> field ("pi" | "claude-code"); filter chip in the library UI.</li>
+</ul>
+
+<h2>R · Reversibility</h2>
+<table>
+  <tr><th>R-1</th><td>If Claude Code's schema turns out to need a substantially different UI (e.g., sidechain-first timeline), the adapter still works — only <code>public/app.js</code> renderer branches change.</td></tr>
+  <tr><th>R-2</th><td>Disabling Claude Code: remove its entry from <code>src/sources/index.js</code> registry. No other code touches it.</td></tr>
+</table>
+
+<h2>L · Followups (post-MVP)</h2>
+<ul>
+  <li>Sidechain (subagent) visualization in the tree pane — likely a distinct color/indent.</li>
+  <li>Attachment inspector card for Claude Code <code>attachment</code> entries.</li>
+  <li>Cross-agent "compare two sessions" view.</li>
+</ul>
+
+<h2>Slice A · Split parser (complete)</h2>
+<table>
+  <tr><th>Outcome</th><td>Pure refactor; pi semantics byte-identical. <code>src/parser.js</code> shrunk from 229 LOC to ~55 LOC dispatch shim. <code>src/sources/pi.js</code> (290 LOC) owns the pi JSONL normalization. <code>src/sources/index.js</code> (75 LOC) is the registry + sniff. <code>src/scanner.js</code> delegates <code>listSessionFiles</code>/<code>decodeProjectDir</code> to the pi adapter.</td></tr>
+  <tr><th>Files created</th><td><code>src/sources/pi.js</code>, <code>src/sources/index.js</code></td></tr>
+  <tr><th>Files modified</th><td><code>src/parser.js</code> (dispatch shim), <code>src/scanner.js</code> (delegation layer)</td></tr>
+  <tr><th>Validation</th><td>10/10 <code>test/parser.test.js</code>, 9/9 <code>test/api.test.js</code>, <b>14/14 <code>test/metrics.js</code></b> incl. M9 (0 mtime changes), TC (per-kind render coverage), SF (206/206 fails surfaced).</td></tr>
+  <tr><th>D-3</th><td>Normalized entries in slice A already carry <code>source: 'pi'</code> and <code>sidechain: false</code>. Pre-populating these in pi removes a downstream branch in slice E. Confirmed no fixture/test asserts against entry shape negatively (e.g. no "keys exactly equal X" assertion).</td></tr>
+  <tr><th>D-4</th><td>Forward-compat fields added to pi-source entries: <code>promptType:'user'</code> on user; <code>messageId:null</code>, <code>shardOf:null</code> on assistant; <code>tokensAfter:null</code>, <code>trigger:null</code>, <code>mechanism:'pi-native'</code> on compaction. Zero-impact for pi (downstream code only reads these for cc summaries).</td></tr>
+  <tr><th>X-1</th><td>Plan §1.5 said <code>scanner.listSessionFiles</code> should be "unchanged." Reimplemented it as <code>pi.discover(root).map(r =&gt; r.filePath)</code> — same surface (returns string[]), but delegates to the pi adapter's walker (avoids two divergent directory walks). Validated by api.test.js + metrics M1 (361 files found).</td></tr>
+  <tr><th>Risks materialized</th><td>None. R7 (CC version drift) not exercised; R3/R4 deferred to slices C/D.</td></tr>
+</table>
+
+<h2>Slice B · CC adapter skeleton + pricing (complete)</h2>
+<table>
+  <tr><th>Outcome</th><td>CC adapter handles <code>user</code> + <code>assistant</code> + <code>unknown</code> kinds with full field surface (text, usage, cost via pricing table, model, stopReason, messageId, parent linking via parentUuid→parentId). Sniff routes cc files through the dispatch shim without any explicit source hint.</td></tr>
+  <tr><th>Files created</th><td><code>src/sources/claude-code.js</code> (skeleton, ~290 LOC), <code>src/sources/pricing.js</code>, <code>fixtures/claude-code/cc-simple-turn.jsonl</code>, <code>test/sources-claude-code.test.js</code></td></tr>
+  <tr><th>Files modified</th><td>None (cc registered automatically via <code>src/sources/index.js</code> try/catch).</td></tr>
+  <tr><th>Validation</th><td>12/12 <code>test/sources-claude-code.test.js</code>, 10/10 pi parser, 9/9 api, <b>14/14 metrics gates</b>. Cost computation verified to 1e-12 precision against pricing table.</td></tr>
+  <tr><th>D-5</th><td>Pricing prefix-match strategy: walk back dash-separated segments until a known key is found. Allows new model snapshots (e.g. <code>claude-opus-4-5-20260801</code>) to inherit pricing from the family root (<code>claude-opus-4-5</code>) until the table is updated. Risk R1 mitigation.</td></tr>
+  <tr><th>D-6</th><td><code>discover()</code> skips <code>agent-*.jsonl</code> and nested <code>subagents/</code> directories by default. The inline <code>isSidechain:true</code> flag (slice D) covers subagent attribution; surfacing subagent files as standalone library rows is L-followup. Risk R10 mitigation.</td></tr>
+  <tr><th>D-7</th><td><code>sniff()</code> rule: cc accepts ANY object with <code>sessionId</code> + <code>type</code> EXCEPT <code>type === 'session'</code> (which is pi's discriminator). Tested in both directions — cc rejects pi headers and pi rejects cc first-lines.</td></tr>
+  <tr><th>X-2</th><td>Plan §7 simple-turn fixture spec says "Lines: 4" and asserts <code>sessionMeta.synthesized === true</code>. Wrote 2 content-line fixture instead, since slice B does NOT synthesize sessionMeta (deferred to slice D per slice ordering). The <code>synthesized</code> assertion will be added when the test fixture and adapter both gain the capability. Slice B keeps codebase green; slice D test additions cover this.</td></tr>
+  <tr><th>X-3</th><td><code>promptType</code> detection added on user entries now (not deferred). Light heuristic: <code>isCompactSummary</code>→system_caveat, <code>toolUseResult</code> or tool_result-content→hook_result, <code>&lt;command-name&gt;</code> stdin wrapper→command, else <code>user</code>. Lets the slice-E signal regex tweak land cleanly.</td></tr>
+  <tr><th>Risks materialized</th><td>R1 (cost staleness) preemptively mitigated by prefix matcher. R10 (subagent dual-emission) preemptively mitigated by discover-skip rule.</td></tr>
+</table>
+
+<h2>Slice C · CC tool correlation + Bash mapping (complete)</h2>
+<table>
+  <tr><th>Outcome</th><td>Pre-pass builds <code>toolUseRegistry</code> across the file (id→{name,input,uuid}); user entries with <code>tool_result</code> content are SUPPRESSED as <code>kind:'user'</code> and instead emit one <code>toolResult</code> OR <code>bashExecution</code> per <code>tool_result</code> block. Bash mapping synthesizes exit-code via 3-tier heuristic (interrupted=−1, isError=1, regex fallback on output=1).</td></tr>
+  <tr><th>Files created</th><td><code>fixtures/claude-code/cc-tool-success.jsonl</code>, <code>cc-multi-tool-use.jsonl</code>, <code>cc-bash-success.jsonl</code>, <code>cc-bash-error.jsonl</code></td></tr>
+  <tr><th>Files modified</th><td><code>src/sources/claude-code.js</code> (full rewrite of normalizeEntry: tool-result extraction, Bash heuristics, multi-emit per user line), <code>test/sources-claude-code.test.js</code> (7 new tests)</td></tr>
+  <tr><th>Validation</th><td>19/19 cc tests, 10/10 pi parser, 9/9 api, <b>14/14 metrics gates</b>. Failed-bash signal fires on <code>toolUseResult.isError:true</code>; failed-bash does NOT fire on success.</td></tr>
+  <tr><th>D-8 (Risk R3 mitigation)</th><td>Bash exit-code heuristic: <code>interrupted→-1</code>, <code>isError→1</code>, <code>BASH_FAILURE_HINT_RE</code> matching <code>^Error:|^Traceback|exit (status|code) N(!=0)</code> on the output→1. Verified by the inline-fixture Traceback test (7th test in the new batch). Cleanly returns <code>null</code> for successful runs (no false positives).</td></tr>
+  <tr><th>D-9</th><td>Distinct entry IDs when one user-line emits multiple toolResults: <code>${uuid}:${tool_use_id}</code>. Single-tool case keeps the raw uuid as the entry id (preserves parentId chain for downstream tree-rendering).</td></tr>
+  <tr><th>D-10</th><td>Toolresult-without-paired-tool_use is recorded in <code>parseErrors</code> (defensive against malformed logs / cross-file replays). Live-corpus has zero such cases per A-2 verification, so this is forward-compat.</td></tr>
+  <tr><th>T-1 (tradeoff)</th><td>Bash output is stitched from <code>toolUseResult.stdout</code> + <code>toolUseResult.stderr</code> with a newline separator. Lossy vs structured access (caller can't distinguish stdout-only from stderr-only), but matches pi's bashExecution.output shape and what failed_bash/repeated_failed_command signals consume. Slice F renderer could split them visually if needed (L-followup).</td></tr>
+  <tr><th>Risks materialized</th><td>R3 mitigated (exit-code heuristic). No false positives or negatives in the 4 fixtures.</td></tr>
+</table>
+
+<h2>Slice D · CC remaining kinds + sidechain + multi-shard + compaction (complete)</h2>
+<table>
+  <tr><th>Outcome</th><td>CC adapter now covers all 11 kinds present in the live corpus: <code>user</code>, <code>assistant</code>, <code>toolResult</code>, <code>bashExecution</code>, <code>attachment_card</code>, <code>session_meta</code>, <code>error</code>, <code>snapshot</code>, <code>meta</code>, <code>compaction</code>, <code>unknown</code>. Sidechain flag + agentId surfaced. Multi-shard usage rollup invariant locked in (R4). Compaction handles all three mechanisms with ±2-line merging.</td></tr>
+  <tr><th>Files created</th><td>5 fixtures: <code>cc-sidechain.jsonl</code>, <code>cc-multi-shard-assistant.jsonl</code>, <code>cc-attachment.jsonl</code>, <code>cc-queue-operation.jsonl</code>, <code>cc-malformed-line.jsonl</code>.</td></tr>
+  <tr><th>Files modified</th><td><code>src/sources/claude-code.js</code> grew from ~290 → ~620 LOC. Four pre-passes now: tool_use, shard-state, compaction-state, sessionMeta synthesis. <code>test/sources-claude-code.test.js</code> grew from 19 → 27 assertions.</td></tr>
+  <tr><th>Validation</th><td>27/27 cc tests, 10/10 pi parser, 9/9 api, <b>14/14 metrics gates</b>. Critical invariants verified: R4 (usage counted once for multi-shard), compaction merge (boundary+summary→1 entry), sidechain agentId on ALL flagged entries, parseErrors tolerant on malformed JSON.</td></tr>
+  <tr><th>D-11 (Risk R4 lock-in)</th><td>Shard-state pre-pass tracks two maps: <code>shardOfByUuid</code> and <code>keepUsageByUuid</code>. Only the FIRST shard carrying <code>message.usage</code> keeps it populated; later shards with the same <code>message.id</code> get <code>usage:null</code>. Verified by fixture assertion <code>entries.filter(e =&gt; e.usage).length === 1</code> and summary rollup <code>totalTokens === 150</code> (not 300).</td></tr>
+  <tr><th>D-12 (Plan §4 compaction)</th><td>Three mechanisms with explicit priority + ±2-line merge window. The boundary index runs FIRST; its emit-line owns the merged compaction. <code>user.isCompactSummary</code> within window is added to the <code>consume</code> set (no own entry emitted). Independent isCompactSummary becomes its own compaction. Top-level <code>summary</code> entries are the lowest priority.</td></tr>
+  <tr><th>D-13 (Plan §6 sessionMeta synthesis)</th><td>Last-wins for cwd / gitBranch / version / model. <code>synthesized:true</code> when no <code>system.init</code> seen (the 100% case in live corpus). When init IS present, emit an entry-level <code>session_meta</code> kind too; when synthesized, only return the sessionMeta object (no entry-level emission — avoids cluttering every cc session with a junk card).</td></tr>
+  <tr><th>D-14</th><td>Slice C's <code>cc-simple-turn</code> test added a synthesized=true assertion in slice D (X-2 closed). Now both fixtures and tests align with the live-corpus reality.</td></tr>
+  <tr><th>D-15</th><td>Assistant <code>isApiErrorMessage:true</code> takes precedence over the normal assistant kind — emits <code>error</code> kind directly. system.api_error subtype also emits <code>error</code> (severity:'fatal' vs 'retryable' for assistant errors).</td></tr>
+  <tr><th>T-2 (tradeoff)</th><td>file-history-snapshot with empty <code>trackedFileBackups</code> falls through to <code>meta</code> kind instead of being silenced. Avoids a special-case branch and keeps the timeline lossless (caller can collapse meta entries by default).</td></tr>
+  <tr><th>Risks materialized</th><td>R3 still mitigated. R4 actively tested. R6 not exercised (no fixtures with literal dashes in cwd). R10 not exercised (no subagent files in fixtures).</td></tr>
+</table>
+
+<h2>Slice E · API + scanner multi-source plumbing (complete)</h2>
+<table>
+  <tr><th>Outcome</th><td>Library now mixes pi + cc rows in a single sortable list. Every summary carries a <code>source</code> field. <code>?source=pi|claude-code</code> query filter live. Search hay includes source so typing 'claude-code' narrows results. Back-compat <code>setSessionsRoot(root)</code> preserved.</td></tr>
+  <tr><th>Files modified</th><td><code>src/scanner.js</code>, <code>src/api.js</code>, <code>src/summary.js</code>, <code>src/signals.js</code>, <code>server.js</code> (1-line source-filter add), <code>test/api.test.js</code> (6 new tests).</td></tr>
+  <tr><th>Validation</th><td>15/15 api tests, 27/27 cc, 10/10 pi, <b>14/14 metrics gates</b>. Mixed-source library asserts both sources present, source filter narrows to one, search by source token works.</td></tr>
+  <tr><th>D-16 (file dedup)</th><td><code>enumerateFiles()</code> deduplicates by absolute <code>filePath</code> across all configured roots. Safe when pi and cc roots overlap (e.g. fixtures setup with FIX as pi root and FIX/claude-code as cc root). First-wins ordering matches source registry order (pi before cc).</td></tr>
+  <tr><th>D-17 (truth-from-content)</th><td>Summary's <code>source</code> field comes from <code>parsed.source</code> (set by whichever adapter actually parsed the file via sniff). The discover-row's source is fallback only. Means back-compat <code>setSessionsRoot(FIX)</code> with cc files in the tree still tags them correctly as cc — the user's intent ("this is one big pile") is honored, and the data is still classified accurately.</td></tr>
+  <tr><th>D-18 (signals)</th><td><code>aborted_assistant</code> stopReason set widened to <code>{error, aborted, refusal, max_tokens}</code> to match cc's Anthropic-API surface. <code>verification_missing</code> regex now case-insensitive for <code>write|edit|multiedit</code> (cc uses PascalCase tool names). Cross-source <code>high_cost</code> contract documented in code: pi reads <code>m.usage.cost.total</code>, cc computes via <code>sources/pricing.js</code>; <code>e.cost</code> is the unified surface.</td></tr>
+  <tr><th>X-4</th><td>Plan §10 slice E lists server.js as untouched; slice F as the server.js owner. Added a 1-line <code>?source=</code> filter to server.js in slice E because the api test in plan §8.3 hits <code>/api/sessions?source=claude-code</code> through the server. Tight scope, no other server.js changes carried over.</td></tr>
+  <tr><th>D-19 (new summary fields)</th><td>Added <code>sidechainCount</code>, <code>attachmentCount</code>, <code>metaCount</code>, <code>errorEventCount</code>, <code>snapshotCount</code>. All default 0 on pi sessions; ID gate (≥8 fields) still passes (now 14 fields). globalStats gains <code>sourceCounts</code> + <code>sessionsRoots</code> for the slice-F startup log.</td></tr>
+  <tr><th>D-20 (search results carry source)</th><td>Each search-result row gets a <code>source</code> field. Lets the slice-F UI render a source badge in search hits without an extra round-trip.</td></tr>
+  <tr><th>Risks materialized</th><td>R8 (cold-load perf) not exercised by fixtures; metrics gate M6 still p95=37ms on real corpus.</td></tr>
+</table>
+
+<h2>Slice F · Server CLI + UI surface (complete)</h2>
+<table>
+  <tr><th>Outcome</th><td>End-to-end multi-source UX: <code>--source</code>, <code>--pi-sessions</code>, <code>--claude-sessions</code> CLI flags; auto-discovery of both roots on default startup; per-source startup log; UI source filter chip + sidechain filter + source badge on rows; sidechain badge + agent-id on entries; renderers for <code>session_meta</code>, <code>attachment_card</code>, <code>error</code>, <code>snapshot</code>, <code>meta</code> kinds in BOTH <code>public/app.js</code> and <code>src/export-html.js</code>; <code>docs/sources.md</code> operator doc.</td></tr>
+  <tr><th>Files modified</th><td><code>server.js</code> (full CLI + startup log), <code>public/index.html</code>, <code>public/app.js</code>, <code>public/styles.css</code>, <code>src/export-html.js</code>, <code>test/metrics.js</code> (M8 split + <code>--source</code> flag), <code>test/run-all.js</code>, <code>package.json</code>.</td></tr>
+  <tr><th>Files created</th><td><code>docs/sources.md</code>.</td></tr>
+  <tr><th>Validation (full suite)</th><td>
+    • 10/10 <code>test/parser.test.js</code><br>
+    • 27/27 <code>test/sources-claude-code.test.js</code><br>
+    • 15/15 <code>test/api.test.js</code><br>
+    • 14/14 <code>test/metrics.js</code> (pi default, 369 sessions)<br>
+    • 14/14 <code>test/metrics.js --source claude-code</code> (M8-cc=9 kinds, 482 sessions)<br>
+    • 14/14 <code>test/metrics.js --source both</code> (851 sessions, <b>11 signal kinds</b> firing across mixed corpus)<br>
+    Live server smoke test (port 7901) confirmed startup log per source, <code>?source=pi</code>/<code>?source=claude-code</code> filters narrow to exactly 369/482 rows.
+  </td></tr>
+  <tr><th>D-21 (CLI resolution)</th><td>Per plan §1.7: explicit per-source overrides &gt; <code>--sessions</code> (with sniff) &gt; <code>--source</code> modulator &gt; env defaults. <code>--sessions &lt;dir&gt;</code> back-compat sniffs the first jsonl file under the dir and routes accordingly; defaults to pi-only if no cc-shape file is found (preserves the legacy behavior).</td></tr>
+  <tr><th>D-22 (M8 split)</th><td>pi run: ≥5 signal kinds (unchanged). cc-only run: ≥3 (M8-cc, per plan §3.2). Mixed run uses pi threshold since signals only grow with more sources. On the live corpus: cc-only fires 9 kinds, mixed fires 11.</td></tr>
+  <tr><th>D-23 (R3 in production)</th><td>Real-corpus result: the Bash exit-code heuristic surfaces <b>86 failed-tool/failed-bash events</b> on the cc corpus (100% of ground truth per SF gate). Both <code>failed_bash</code> AND <code>repeated_failed_command</code> fire on the live cc data, confirming the heuristic is sensitive enough without false positives.</td></tr>
+  <tr><th>D-24 (sidechain reality)</th><td>Smoke test showed <code>?hasSidechain=1</code> returns count=0 on the live corpus. Investigation: real cc subagent transcripts are NOT inline (<code>isSidechain:true</code>) on main thread files; they live in <code>agent-*.jsonl</code> sibling files which D-6 / R10 skip by default. The cc-sidechain fixture covers the inline path the adapter supports; surfacing subagent files as library rows is L-followup (already documented). MVP behavior is correct.</td></tr>
+  <tr><th>D-25 (error kind in production)</th><td>cc-only metrics surfaced <b>17 error events</b> (system.api_error + assistant.isApiErrorMessage). Useful diagnostic surface that pi sessions don't have.</td></tr>
+  <tr><th>T-3 (tradeoff: subagent UI)</th><td>Sidechain badge ships in <code>public/app.js</code> for both main-thread inline sidechain entries and library-level rollup (<code>sidechainCount</code> badge). When subagent files become library rows in a followup, the same UI surfaces will light up without code change.</td></tr>
+  <tr><th>Risks materialized</th><td>R3 mitigated (verified on live corpus). R4 invariant holds (multi-shard usage counted once in cc TC gate per-kind coverage). R8 (perf) not exercised: <code>p95=210ms</code> on cc search (deep-search through 482 files), <code>p95=22ms</code> on cc large-session-open. R10 (sidechain dual-emission) confirmed not a problem because agent-*.jsonl is skipped.</td></tr>
+  <tr><th>M9 invariant</th><td><b>0 mtime changes</b> verified in all three metrics modes (pi-only, cc-only, both). Read-only guarantee held throughout.</td></tr>
+</table>
+
+<h2>Final summary</h2>
+<p>All six slices A–F complete. Net delta:</p>
+<ul>
+  <li><b>New files:</b> <code>src/sources/{pi,claude-code,index,pricing}.js</code>, <code>test/sources-claude-code.test.js</code>, 10 cc fixtures, <code>docs/sources.md</code>. Total ~52KB new code.</li>
+  <li><b>Modified files:</b> <code>src/{parser,scanner,summary,signals,api,export-html}.js</code>, <code>server.js</code>, <code>public/{index.html,app.js,styles.css}</code>, <code>test/{parser.test.js,api.test.js,metrics.js,run-all.js}</code>, <code>package.json</code>.</li>
+  <li><b>Tests:</b> 52/52 unit + integration tests green. 14/14 metrics gates green in all three modes (pi, cc, mixed). M9 read-only invariant: 0 mtime changes verified empirically across 851 real session files in mixed mode.</li>
+  <li><b>Behavior preservation:</b> pre-existing pi tests pass byte-identical results pre- and post-refactor.</li>
+</ul>
+
+<h2>D-26 · Review fanout triage (post-worker)</h2>
+<p>Four parallel adversarial reviewers (correctness / tests / simplicity / security) returned. No blockers. Outputs at <code>review-{correctness,tests,simplicity,security}.md</code>; all indexed in context-mode under <code>source: "review: *"</code>.</p>
+<p><b>M9 invariant confirmed structurally.</b> Security reviewer ran <code>grep -E 'fs\.(write|append|utimes|chmod|unlink|rename|mkdir|symlink|link|rmdir)'</code> across <code>src/</code>, <code>server.js</code>, <code>public/</code> — <b>zero matches</b>. Combined with empirical 50/50 mtimes unchanged across 851 files, evidence is robust.</p>
+
+<h3>Fix-worker scope (must-fix · polish · defer)</h3>
+<table>
+  <tr><th>ID</th><th>Bucket</th><th>Origin</th><th>Action</th></tr>
+  <tr><td><b>C-1</b></td><td>must</td><td>correctness</td><td>Register <code>server_tool_use</code> in tool-use registry; accept <code>web_search_tool_result</code> in extractor.</td></tr>
+  <tr><td><b>C-2</b></td><td>must</td><td>correctness</td><td>Broaden <code>BASH_FAILURE_HINT_RE</code> to catch <code>make: *** Error N</code>, <code>command not found</code>, <code>Permission denied</code>, plain <code>exit N</code>, <code>*Error:</code>.</td></tr>
+  <tr><td><b>C-3</b></td><td>must</td><td>correctness</td><td>Compaction merge must NOT orphan downstream children. Approach: merged entry keeps the <i>consumed user's</i> uuid as its <code>id</code> (not the boundary's), so <code>parentUuid</code> references resolve. Alt: <code>aliasIdMap</code> remap pass.</td></tr>
+  <tr><td><b>C-4</b></td><td>must</td><td>correctness</td><td>Drop <code>'max_tokens'</code> from <code>aborted_assistant</code> stopReason set.</td></tr>
+  <tr><td><b>C-5</b></td><td>polish</td><td>correctness</td><td>When <code>toolUseResult.tool_use_id</code> present but no <code>tool_result</code> block in <code>message.content[]</code>, synthesize a tr-shaped object from the wrapper.</td></tr>
+  <tr><td><b>C-6</b></td><td>polish</td><td>correctness</td><td>Pricing: add <code>claude-opus-4-5</code> row; add <code>claude-3-5-sonnet</code> / <code>claude-3-5-haiku</code> / <code>claude-3-opus</code>.</td></tr>
+  <tr><td><b>S-1</b></td><td>must</td><td>security</td><td>File-size gate in <code>parseFile</code>: <code>statSync.size &gt; 256MB</code> → return error envelope, no read.</td></tr>
+  <tr><td><b>S-2</b></td><td>must</td><td>security</td><td>Streaming line splitter (<code>readline</code> over <code>createReadStream</code>); skip+flag any line &gt; 16MB. Removes the dual <code>readFileSync + split('\n')</code> RAM doubling.</td></tr>
+  <tr><td><b>S-3</b></td><td>must</td><td>security</td><td>Cap per-field at 8KB in <code>entrySearchHay</code> (or precompute lowercased hay into <code>PARSED_CACHE</code>).</td></tr>
+  <tr><td><b>S-4</b></td><td>polish</td><td>security</td><td>Cap <code>parseErrors</code> at 1000; track overflow counter.</td></tr>
+  <tr><td><b>S-5</b></td><td>polish</td><td>security</td><td>Sanitize <code>content-disposition</code> filename: prefer <code>detail.summary.id</code>, regex-strip to <code>[A-Za-z0-9._-]</code>.</td></tr>
+  <tr><td><b>S-6</b></td><td>polish</td><td>security</td><td>Validate <code>--source</code> against <code>listSources()</code>; reject unknown with clear error.</td></tr>
+  <tr><td><b>S-7</b></td><td>polish</td><td>security</td><td><code>const s = fs.createReadStream(full); res.on('close', () =&gt; s.destroy()); s.pipe(res);</code></td></tr>
+  <tr><td><b>S-8</b></td><td>polish</td><td>security</td><td>Add <code>"'": "&amp;#39;"</code> to <code>esc()</code> map.</td></tr>
+  <tr><td><b>P-1</b></td><td>polish</td><td>simplicity</td><td>Delete unused <code>parser.js</code> back-compat shims (<code>normalizeEntry</code>, <code>parseSessionText</code> re-exports).</td></tr>
+  <tr><td><b>P-2</b></td><td>polish</td><td>simplicity</td><td>Remove slice-A <code>try/catch require</code> in <code>src/sources/index.js</code>; static <code>require('./claude-code')</code>.</td></tr>
+  <tr><td><b>P-3</b></td><td>polish</td><td>simplicity</td><td>Annotate <code>session_meta</code> kind, <code>shardOf</code>, <code>messageId</code>, <code>sessionMeta.synthesized</code> as forward-compat-only with one-line comments at field/branch sites.</td></tr>
+  <tr><td><b>T-1</b></td><td>must</td><td>tests</td><td>NEW <code>test/export-html.test.js</code>: render every cc fixture via <code>exportHtml</code>; assert no throw; assert each kind produces a non-empty fragment.</td></tr>
+  <tr><td><b>T-2</b></td><td>must</td><td>tests</td><td>Update <code>cc-simple-turn</code> usage to include <code>cache_creation_input_tokens</code> + <code>cache_read_input_tokens</code>; tighten cost assertion to all-four-token-kinds math.</td></tr>
+  <tr><td><b>T-3</b></td><td>must</td><td>tests</td><td>Inline test exercising <code>tool_result.content</code> as a STRING (not array) — most common live shape today.</td></tr>
+  <tr><td><b>T-4</b></td><td>polish</td><td>tests</td><td>Fix assertion A1: <code>p.entries.every(e =&gt; e.kind !== 'failed_tool')</code> at sources-cc test L121 — swap predicate to <code>sigs</code> if intended on signals; structurally always-true today.</td></tr>
+  <tr><td><b>T-5</b></td><td>polish</td><td>tests</td><td>Edge cases via <code>parseSessionText</code> inline: empty file, BOM-prefixed file, blank-lines-only, duplicate <code>tool_use.id</code> (last-wins documented), <code>system.init</code> path (exercises dead branch).</td></tr>
+  <tr><th colspan="4">DEFERRED to L-followups</th></tr>
+  <tr><td>L-1</td><td>defer</td><td>tests</td><td>Mixed-mode metrics superset gate (M3).</td></tr>
+  <tr><td>L-2</td><td>defer</td><td>tests</td><td>Cache-invalidation test across sources (API2).</td></tr>
+  <tr><td>L-3</td><td>defer</td><td>tests</td><td>Source-aware search filter test (<code>?source=</code> applied to <code>/api/search</code>) (API3).</td></tr>
+  <tr><td>L-4</td><td>defer</td><td>correctness</td><td>Sidechain flag propagation from paired <code>tool_use</code>'s branch (theoretical — IDs unique in practice).</td></tr>
+  <tr><td>L-5</td><td>defer</td><td>correctness</td><td>Distinguish top-level <code>summary</code> from real compaction for <code>compaction_heavy</code> signal (won't fire in user's corpus).</td></tr>
+  <tr><td>L-6</td><td>defer</td><td>security</td><td>Cosmetic <code>..</code> stripping in <code>decodeProjectDir</code>.</td></tr>
+  <tr><td>L-7</td><td>defer</td><td>simplicity</td><td>Renderer kind-table refactor (5 kinds, ~30 LOC saving, indirection cost).</td></tr>
+</table>
+
+<h2>D-27 · Fix-worker pass complete</h2>
+<p>All 21 triage rows executed: 10 must-fix + 6 polish source/security/simplicity + 5 test additions. Validation green across all three modes (pi / cc / both). M9 invariant held: 0/50 mtimes changed at every checkpoint.</p>
+
+<h3>Shipped per group</h3>
+<table>
+  <tr><th>ID</th><th>Files</th><th>Change</th></tr>
+  <tr><td colspan="3"><b>Group A — Correctness</b></td></tr>
+  <tr><td>C-1</td><td><code>src/sources/claude-code.js</code></td><td>buildToolUseRegistry + extractToolResultBlocks + decomposeAssistantContent now accept <code>server_tool_use</code> / <code>web_search_tool_result</code> / <code>mcp_tool_result</code>.</td></tr>
+  <tr><td>C-2</td><td><code>src/sources/claude-code.js</code></td><td>Broadened BASH_FAILURE_HINT_RE to catch <code>make: *** Error N</code>, <code>command not found</code>, <code>permission denied</code>, <code>SyntaxError:</code>, plain <code>exit N</code>, <code>exit status N</code>, <code>exit code N</code>. Live-corpus cc failed-bash count rose 86→97 (intended sensitivity bump).</td></tr>
+  <tr><td>C-3</td><td><code>src/sources/claude-code.js</code></td><td>Compaction merge now uses the consumed user's uuid (not the boundary's) as the merged entry's id, and the user's parentUuid as parentId — downstream children no longer orphan. (See X-8 below.)</td></tr>
+  <tr><td>C-4</td><td><code>src/signals.js</code></td><td>Dropped <code>max_tokens</code> from aborted_assistant stopReason set.</td></tr>
+  <tr><td>C-5</td><td><code>src/sources/claude-code.js</code></td><td>normalizeUserEntry synthesizes a tool_result block from <code>raw.toolUseResult.tool_use_id</code> when no tool_result block sits in <code>message.content[]</code> (Task subagent path).</td></tr>
+  <tr><td>C-6</td><td><code>src/sources/pricing.js</code></td><td>Added <code>claude-opus-4-5</code> + Claude 3.x family (3-5-sonnet, 3-5-haiku, 3-opus, 3-sonnet, 3-haiku). See X-7.</td></tr>
+  <tr><td colspan="3"><b>Group B — Security</b></td></tr>
+  <tr><td>S-1</td><td><code>src/sources/{claude-code,pi}.js</code></td><td>statSync size check in parseFile; refuses files &gt; 256MB with an error envelope (no allocation, no throw).</td></tr>
+  <tr><td>S-2</td><td><code>src/sources/{claude-code,pi}.js</code></td><td>Replaced <code>text.split('\n')</code> with indexOf-based line iteration. Skips any single line &gt; 16MB with a parseError. (See X-6 for the sync-vs-true-streaming nuance.)</td></tr>
+  <tr><td>S-3</td><td><code>src/api.js</code></td><td>entrySearchHay caps every per-field at 8KB before concat — a 100MB Read output no longer balloons per-query scan memory.</td></tr>
+  <tr><td>S-4</td><td><code>src/sources/{claude-code,pi}.js</code></td><td>parseErrors capped at 1000 entries with a final overflow marker.</td></tr>
+  <tr><td>S-5</td><td><code>server.js</code></td><td>content-disposition filename derived from resolved <code>detail.summary.id</code>, stripped to <code>[A-Za-z0-9._-]</code>, length-capped at 128, fallback to <code>'session'</code>.</td></tr>
+  <tr><td>S-6</td><td><code>server.js</code></td><td>--source validated against <code>listSources() + ['both']</code>; unknown values exit 2 with a clear error.</td></tr>
+  <tr><td>S-7</td><td><code>server.js</code></td><td>serveStatic destroys the createReadStream on res 'close' to prevent FD leaks under abrupt client disconnects.</td></tr>
+  <tr><td>S-8</td><td><code>public/app.js</code>, <code>src/export-html.js</code></td><td>esc() now escapes <code>'</code> as <code>&amp;#39;</code>.</td></tr>
+  <tr><td colspan="3"><b>Group C — Simplicity</b></td></tr>
+  <tr><td>P-1</td><td><code>src/parser.js</code></td><td>Removed unused normalizeEntry / parseSessionText re-export shims. parser.js is now ~25 LOC of pure dispatch.</td></tr>
+  <tr><td>P-2</td><td><code>src/sources/index.js</code></td><td>Removed slice-A try/catch require for claude-code; now a hard require. listSources kept (server.js uses it for --source validation).</td></tr>
+  <tr><td>P-3</td><td><code>src/sources/claude-code.js</code></td><td>Added forward-compat comments at messageId/shardOf, sessionMeta.synthesized, and the system.init session_meta branch.</td></tr>
+  <tr><td colspan="3"><b>Group D — Tests</b></td></tr>
+  <tr><td>T-1</td><td><code>test/export-html.test.js</code></td><td>NEW. 41 tests: per-fixture (a) renders without throw, (b) contains &lt;html&gt;/&lt;body&gt;, (c) every entry kind produces a kind-&lt;kind&gt; class hit. Plus source-badge, sidechain-badge, and HTML-escaping regression guards.</td></tr>
+  <tr><td>T-2</td><td><code>fixtures/claude-code/cc-simple-turn.jsonl</code>, <code>test/sources-claude-code.test.js</code></td><td>Fixture now carries cache_creation_input_tokens=200 + cache_read_input_tokens=5000. Cost assertion tightened to all-four-token-kinds math.</td></tr>
+  <tr><td>T-3</td><td><code>test/sources-claude-code.test.js</code></td><td>Inline test: tool_result.content as a string (not array) preserves text through collectToolResultText.</td></tr>
+  <tr><td>T-4</td><td>(none)</td><td>See X-5 — the assertion was already over <code>sigs</code>, not <code>p.entries</code>. No-edit-required.</td></tr>
+  <tr><td>T-5</td><td><code>test/sources-claude-code.test.js</code></td><td>5 new inline tests via parseSessionText: empty, blank-only, BOM-prefixed (graceful parseError), duplicate tool_use.id (last-wins documented), system.init init-branch exercised.</td></tr>
+</table>
+
+<h3>X-* deviations</h3>
+<table>
+  <tr><th>ID</th><th>Trigger</th><th>Decision</th><th>Reversibility</th></tr>
+  <tr><td><b>X-5</b></td><td>T-4 — triage said L121 had a structurally-true <code>p.entries.every(e =&gt; e.kind !== 'failed_tool')</code> assertion.</td><td>Re-checked the file at HEAD: L129 is <code>sigs.every((s) =&gt; s.kind !== 'failed_tool')</code> (correct array, correct intent). Triage was based on an older snapshot. No edit applied.</td><td>n/a</td></tr>
+  <tr><td><b>X-6</b></td><td>S-2 — triage proposed <code>readline</code> over <code>createReadStream</code>.</td><td>That would force <code>parseFile</code> async, cascading through <code>src/api.js</code> (<code>loadParsed</code>/<code>loadSummary</code> are sync) and into <code>test/metrics.js</code>. Instead kept the function sync and replaced <code>text.split('\n')</code> with manual <code>indexOf</code> iteration. Eliminates the line-array allocation (the named harm in the review). Peak RAM bounded by S-1's 256MB file cap; per-line cap enforced at 16MB. Functional outcome equivalent.</td><td>High — swap the inner loop to true streaming if/when an async-parse refactor lands.</td></tr>
+  <tr><td><b>X-7</b></td><td>C-6 — triage said "add Claude-3.x rows with their public per-million prices" without explicit numbers.</td><td>Used Anthropic's published prices as known on 2026-06-04: 3-5-sonnet 3/15, 3-5-haiku 0.8/4, 3-opus 15/75, 3-sonnet 3/15, 3-haiku 0.25/1.25 (input/output per million). cacheCreation = 1.25×input, cacheRead = 0.1×input — the same ratios used by every other family row.</td><td>High — one-line edit per row when pricing changes.</td></tr>
+  <tr><td><b>X-8</b></td><td>C-3 — triage offered (a) emit both entries OR (b) maintain aliasIdMap.</td><td>Picked a third option: merged entry takes <code>summaryObj.uuid</code> as id and <code>summaryObj.parentUuid</code> as parentId. Single pass, no alias map, and the user line was always destined to be "consumed" so taking its identity is semantically aligned. The boundary uuid is preserved in <code>raw</code> for debug.</td><td>Medium — swap to alias-map approach if a session ever ships with downstream entries that reference the BOUNDARY's uuid (none seen in live corpus).</td></tr>
+</table>
+
+<h3>No new L-* items discovered</h3>
+<p>Worked through all 21 triage rows without uncovering any new out-of-scope bugs. The bash-regex broadening (C-2) and the cc-corpus failed-bash bump 86→97 were both expected effects of the broadened heuristic.</p>
+
+<h3>Validation matrix</h3>
+<table>
+  <tr><th>Suite</th><th>Before</th><th>After</th></tr>
+  <tr><td><code>test/parser.test.js</code></td><td>10/10</td><td>10/10</td></tr>
+  <tr><td><code>test/sources-claude-code.test.js</code></td><td>27/27</td><td>33/33</td></tr>
+  <tr><td><code>test/api.test.js</code></td><td>15/15</td><td>15/15</td></tr>
+  <tr><td><code>test/export-html.test.js</code></td><td>(did not exist)</td><td>41/41 (NEW)</td></tr>
+  <tr><td><code>test/metrics.js</code> (pi)</td><td>14/14</td><td>14/14</td></tr>
+  <tr><td><code>test/metrics.js --source claude-code</code></td><td>14/14</td><td>14/14</td></tr>
+  <tr><td><code>test/metrics.js --source both</code></td><td>14/14</td><td>14/14</td></tr>
+  <tr><td><b>Total tests</b></td><td>66</td><td>113</td></tr>
+  <tr><td>M9 mtime changes</td><td>0/50</td><td>0/50 (re-confirmed after every group)</td></tr>
+  <tr><td>cc-corpus failed-bash detection</td><td>86 fails</td><td>97 fails (+13%, regex broadening)</td></tr>
+  <tr><td>Mixed-mode unique signal kinds (––source both)</td><td>(unknown)</td><td>11 distinct kinds</td></tr>
+</table>
+
+<h2>Process</h2>
+<ol>
+  <li><b>Scout + researcher (async parallel)</b> — running now. Scout maps pi-schema leaks past <code>src/parser.js</code>; researcher profiles Claude Code JSONL from real on-disk data.</li>
+  <li><b>Planner</b> — synthesizes the adapter design from both outputs.</li>
+  <li><b>Worker (async)</b> — implements per planner's meta-prompt.</li>
+  <li><b>Parallel reviewers (fresh context)</b> — correctness / tests / simplicity fanout.</li>
+  <li><b>Fix worker</b> — applies findings.</li>
+  <li><b>Validation</b> — <code>test/parser.test.js</code> + <code>test/api.test.js</code> + <code>test/metrics.js</code> all green for both sources.</li>
+</ol>
+
+</body>
+</html>

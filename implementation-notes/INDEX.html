@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Implementation Notes — Index</title>
+<style>
+  body { font: 14px/1.5 -apple-system, system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #f6f6f6; position: sticky; top: 0; }
+  tr.superseded td { text-decoration: line-through; color: #888; }
+  .blast-high { color: #b00020; font-weight: 600; } .blast-med { color: #b85c00; } .blast-low { color: #2a7a2a; }
+  .status-in-progress { color: #b85c00; } .status-shipped { color: #2a7a2a; } .status-blocked { color: #b00020; }
+  a { color: #1a5fb4; text-decoration: none; } a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<h1>Implementation Notes — Index</h1>
+<p>One row per task, newest first. Never delete — superseded rows get strikethrough and a <code>[superseded by …]</code> note.</p>
+<table>
+  <thead><tr><th>Date</th><th>Task</th><th>Status</th><th>Blast</th><th>Tags</th><th>Summary</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>2026-06-04</td>
+      <td><a href="2026-06-04-cache-bust-investigation.html">Cache-bust investigation</a></td>
+      <td class="status-shipped">shipped</td>
+      <td class="blast-low">low</td>
+      <td>research, prompt-cache, lab-notebook</td>
+      <td>Analyzed 377 pi sessions (34,732 events): 1,789 cache busts (detector re-run after committing CLI). Dominant causes ranked: (A) cache_control 4-breakpoint exhaustion (~55%, plateau signature; E4 confirmed median onset turn 8 / prefix 42k / gap 17s), (B) on-the-wire dynamic injection by extensions/hooks (3.10× higher busts/turn, 95% CIs non-overlapping; live capture of context-mode's rotating &lt;pruner-note&gt; counter 26→58), (C) 5-min TTL expiry (E3: 1h TTL beta saves 17%/20.1%). Live E6 reproduction: vanilla 0 busts vs extended pinned at 31,847–32,012. Cost (E7): $530–$2,654 wasted. Committed CLI tools/cache-bust-detector.js + tools/cache-bust-experiments.js + run-live-experiment.sh.</td>
+    </tr>
+    <tr>
+      <td>2026-06-04</td>
+      <td><a href="2026-06-04-claude-code-source-adapter.html">Claude Code source adapter</a></td>
+      <td class="status-shipped">shipped</td>
+      <td class="blast-med">med</td>
+      <td>adapter, claude-code, multi-source, gui</td>
+      <td>Shipped 2026-06-05. 6-slice implementation + 21-item review-driven polish. 113/113 tests + 42/42 metrics gates green across pi / claude-code / both. M9 read-only invariant confirmed structurally + empirically (0/50 mtimes). Unified library shows 857 real sessions (374 pi + 483 cc).</td>
+    </tr>
+    <tr>
+      <td>2026-06-04</td>
+      <td><a href="2026-06-04-combine-lookback-plan-metrics.html">Combine lookback plan and metrics</a></td>
+      <td class="status-shipped">shipped</td>
+      <td class="blast-low">low</td>
+      <td>planning, metrics, gui, sessions</td>
+      <td>Combined product plan and measurable acceptance criteria for the pi session trace GUI.</td>
+    </tr>
+  </tbody>
+</table>
+<li><a href="./2026-06-04-mvp-implementation.html">2026-06-04 · pi-lookback MVP implementation</a> — shipped Phase-1 MVP; 14/14 acceptance gates pass.</li>
+</body>
+</html>

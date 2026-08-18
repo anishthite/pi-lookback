@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-06-05T02:53:30.694Z",
+  "e1_breakpoint_strategy": [
+    {
+      "name": "Current (Sliding)",
+      "strategy": "sliding",
+      "totalBusts": 0,
+      "tokensLost": 0,
+      "dynamicBusts": 0,
+      "plateauDetected": true,
+      "cacheHitRate": 1,
+      "turns": 100
+    },
+    {
+      "name": "Proposed (Pinned)",
+      "strategy": "pinned",
+      "totalBusts": 0,
+      "tokensLost": 0,
+      "dynamicBusts": 0,
+      "plateauDetected": true,
+      "cacheHitRate": 1,
+      "turns": 100
+    }
+  ],
+  "e2_dynamic_content": [
+    {
+      "name": "Stable Content",
+      "useDynamic": false,
+      "totalBusts": 0,
+      "tokensLost": 0,
+      "dynamicBusts": 0,
+      "plateauDetected": true,
+      "cacheHitRate": 1,
+      "turns": 50
+    },
+    {
+      "name": "Rotating Counter",
+      "useDynamic": true,
+      "pattern": "exact",
+      "totalBusts": 0,
+      "tokensLost": 0,
+      "dynamicBusts": 0,
+      "plateauDetected": true,
+      "cacheHitRate": 1,
+      "turns": 50
+    },
+    {
+      "name": "Bucketed Counter",
+      "useDynamic": true,
+      "pattern": "bucketed",
+      "totalBusts": 0,
+      "tokensLost": 0,
+      "dynamicBusts": 0,
+      "plateauDetected": true,
+      "cacheHitRate": 1,
+      "turns": 50
+    }
+  ],
+  "summary": {
+    "pinned_strategy_improvement": null,
+    "dynamic_content_impact": null,
+    "bucketing_effectiveness": null
+  }
+}

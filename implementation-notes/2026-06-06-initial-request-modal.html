@@ -1,0 +1,54 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>2026-06-06 · Initial-request modal</title>
+<style>
+body{font:13px/1.5 ui-monospace,Menlo,monospace;max-width:920px;margin:1.5rem auto;padding:0 1rem;color:#111}
+h1{font-size:16px}h2{font-size:14px;margin-top:1.4rem}
+table{border-collapse:collapse;width:100%;font-size:12px}td,th{border:1px solid #ddd;padding:.25rem .45rem;vertical-align:top;text-align:left}
+code{background:#f1f5f9;padding:0 .25rem;border-radius:3px}
+.tag{display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;background:#eef2ff;color:#3730a3;margin-right:.3rem}
+</style>
+<h1>Initial-request modal &mdash; view pi's reconstructed system prompt</h1>
+<p><b>Task.</b> User asked: "is there any way we can see the system prompt or like the full initial message that is sent? im curious why its so big. add a view to pi lookup where if i click on the message i can see this".</p>
+
+<h2>Decisions</h2>
+<table>
+<tr><th>id</th><th>decision</th><th>why</th></tr>
+<tr><td>D-1</td><td>Reconstruct the system prompt rather than try to extract it from the session.</td><td>pi does NOT persist the rendered system prompt in JSONL. <code>dist/core/system-prompt.js</code> builds it in-memory from cwd + AGENTS.md + skills at request time. The session only stores user text, assistant usage, and a <code>stats_initial_prompt_estimate</code> custom event.</td></tr>
+<tr><td>D-2</td><td>New module <code>src/initial-input.js</code>; new route <code>GET /api/sessions/:id/initial-input</code>.</td><td>Keep the reconstruction logic out of <code>summary.js</code> / <code>signals.js</code>; it's an on-demand read, not part of every list call.</td></tr>
+<tr><td>D-3</td><td>Trigger via (a) toolbar button "Initial request" and (b) clicking a user message in the trace pane.</td><td>User said "if i click on the message i can see this". Toolbar button is a discoverability backup.</td></tr>
+<tr><td>D-4</td><td>For non-first user messages, the modal shows only the full untruncated text. The composition view is first-user-only.</td><td>Subsequent user turns don't trigger a fresh system-prompt build; only the first does. Showing composition on every turn would be misleading.</td></tr>
+<tr><td>D-5</td><td>Show three sources of truth: (1) pi's logged <code>stats_initial_prompt_estimate</code>, (2) first assistant <code>usage.cacheWrite</code>, (3) reconstructed file list with current contents.</td><td>(1)+(2) are exact and from the session. (3) is approximate (files may have changed). The UI surfaces this caveat in a yellow note.</td></tr>
+</table>
+
+<h2>Tradeoffs</h2>
+<table>
+<tr><th>id</th><th>tradeoff</th></tr>
+<tr><td>T-1</td><td>Reading current AGENTS.md/SKILL.md from disk means the displayed content can drift from what pi actually sent at session time. Accepted as v1 because (a) the user is reviewing their OWN past sessions on their OWN machine, so disk state is usually close, and (b) the alternative (storing the rendered prompt in JSONL) requires a pi PR. Caveat surfaced in UI.</td></tr>
+<tr><td>T-2</td><td>Skill discovery walks <code>~/.pi/agent/skills</code>, <code>~/.agents/skills</code>, npm-installed extension skills (pi-subagents, context-mode, pi-web-access, pi-autoresearch), and <code>$cwd/.pi/skills</code>. We cap at 60 skills total. Some installations might surface skills from other paths; we'll add those if a session shows obvious gaps.</td></tr>
+<tr><td>T-3</td><td>Per-file preview capped at 32&nbsp;KB and total embedded content capped at 512&nbsp;KB so a session with huge AGENTS.md files doesn't bloat the API response.</td></tr>
+</table>
+
+<h2>Open questions</h2>
+<table>
+<tr><th>id</th><th>question</th></tr>
+<tr><td>Q-1</td><td>Should we also try to surface what pi's <code>--append-system-prompt</code> would have added? Currently not visible at all; pi doesn't log CLI args to JSONL.</td></tr>
+<tr><td>Q-2</td><td>For claude-code sessions, this view currently uses the same heuristics. Claude Code DOES store a synthesized "session_meta" entry with tools/permissionMode; we could do better there in a follow-up.</td></tr>
+</table>
+
+<h2>Files changed</h2>
+<ul>
+<li><code>src/initial-input.js</code> &mdash; new (reconstruction logic)</li>
+<li><code>src/api.js</code> &mdash; export <code>getInitialInput</code></li>
+<li><code>server.js</code> &mdash; route <code>/api/sessions/:id/initial-input</code></li>
+<li><code>public/index.html</code> &mdash; "Initial request" button + modal scaffolding</li>
+<li><code>public/styles.css</code> &mdash; modal + composition-item styles</li>
+<li><code>public/app.js</code> &mdash; click handler on user entries, modal helpers, fetch + render</li>
+</ul>
+
+<h2>Tests run</h2>
+<ul>
+<li><code>node test/parser.test.js</code> &mdash; 10/10 passed</li>
+<li><code>node test/api.test.js</code> &mdash; 15/15 passed</li>
+<li>Manual end-to-end via in-process HTTP: <code>GET /api/sessions/:id/initial-input</code> returns 16 composition items including base-system-prompt, AGENTS.md context files, 11 skills, and extension fingerprint for context-mode.</li>
+</ul>

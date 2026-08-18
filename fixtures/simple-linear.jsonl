@@ -1,0 +1,4 @@
+{"type":"session","version":3,"id":"fixt-simple-linear","timestamp":"2026-06-04T00:00:00.000Z","cwd":"/tmp/fixt"}
+{"type":"model_change","id":"m1","parentId":null,"timestamp":"2026-06-04T00:00:00.001Z","provider":"anthropic","modelId":"claude-test"}
+{"type":"message","id":"u1","parentId":"m1","timestamp":"2026-06-04T00:00:01.000Z","message":{"role":"user","content":[{"type":"text","text":"hi"}],"timestamp":1}}
+{"type":"message","id":"a1","parentId":"u1","timestamp":"2026-06-04T00:00:02.000Z","message":{"role":"assistant","content":[{"type":"text","text":"hello"}],"provider":"anthropic","model":"claude-test","usage":{"totalTokens":10,"cost":{"total":0.001}},"stopReason":"end_turn","timestamp":2}}

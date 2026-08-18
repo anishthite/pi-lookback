@@ -1,0 +1,51 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>2026-06-06 · Use pi's own functions for initial-input reconstruction</title>
+<style>
+body{font:13px/1.5 ui-monospace,Menlo,monospace;max-width:920px;margin:1.5rem auto;padding:0 1rem;color:#111}
+h1{font-size:16px}h2{font-size:14px;margin-top:1.4rem}
+table{border-collapse:collapse;width:100%;font-size:12px}td,th{border:1px solid #ddd;padding:.25rem .45rem;vertical-align:top;text-align:left}
+code{background:#f1f5f9;padding:0 .25rem;border-radius:3px}
+.tag{display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;background:#eef2ff;color:#3730a3;margin-right:.3rem}
+</style>
+<h1>Initial-input reconstruction &mdash; switch to pi's own exported functions</h1>
+<p><b>Task.</b> User said: "ok, can you make sure that pi lookback reconstructs the initial system prompt exactly as pi does it using the function from pi". Follow-up to 2026-06-06-initial-request-modal: the v1 hand-rolled assembly drifted from pi (over-listed <code>~/.codex/AGENTS.md</code>/<code>~/.gemini/GEMINI.md</code> as separate entries because pi only reads <code>~/.pi/agent/AGENTS.md</code> from home; symlink dedupe was string-based not realpath-based; skill loader had its own walking rules; tool/guideline composition was duplicated).</p>
+
+<h2>Decisions</h2>
+<table>
+<tr><th>id</th><th>decision</th><th>why</th></tr>
+<tr><td>D-1</td><td>Dynamic-import pi's ESM bundle from the resolved install dir and delegate to its exports: <code>buildSystemPrompt</code>, <code>loadProjectContextFiles</code>, <code>loadSkills</code>, <code>formatSkillsForPrompt</code>, <code>getAgentDir</code>.</td><td>pi-lookback is CJS, pi is ESM (<code>"type":"module"</code>). Dynamic <code>import()</code> is the only bridge. pi already exports exactly these from <code>dist/index.js</code>.</td></tr>
+<tr><td>D-2</td><td>The canonical system-prompt string is whatever <code>pi.buildSystemPrompt(opts)</code> returns &mdash; not our own concatenation. Labeled sections still exist for the UI but their <code>text</code> values are derived from the SAME inputs we pass to pi, and a runtime assertion checks <code>sections.map(s=>s.text).join('') === piRendered</code>.</td><td>"Exactly as pi does it" requires the byte-for-byte string to come from pi. The labeled view stays for UX (highlight which file produced which substring), but its correctness is now verified against the pi truth.</td></tr>
+<tr><td>D-3</td><td><code>buildInitialInput()</code> becomes async; <code>api.getInitialInput()</code> becomes async; <code>server.js</code> route handler awaits it.</td><td>Dynamic import is async. No way around it for CJS callers of an ESM module.</td></tr>
+<tr><td>D-4</td><td>If the dynamic import fails (pi not installed in a discoverable path), fall back to the legacy hand-rolled assembly with a <code>notes</code> warning.</td><td>pi-lookback ships without pi as a dep. We shouldn't 500 when pi is absent &mdash; the legacy path is still correct enough for the modal to render, just with the historical caveats.</td></tr>
+<tr><td>D-5</td><td>Drop <code>~/.claude</code>, <code>~/.codex</code>, <code>~/.gemini</code> from the home-dir candidate list. pi never reads those.</td><td>Removing the bug. pi's <code>loadProjectContextFiles</code> only reads from <code>agentDir</code> (<code>~/.pi/agent</code>) and the cwd walk. The symlinks at those other home dirs are for other agent tools, not pi.</td></tr>
+<tr><td>D-6</td><td>Skills load via <code>loadSkills({ cwd, agentDir, skillPaths: [], includeDefaults: true })</code>, then <code>formatSkillsForPrompt(skills)</code> for the rendered text. <code>disableModelInvocation</code> filtering is done inside <code>formatSkillsForPrompt</code> already.</td><td>pi's loader does symlink-realpath dedupe + collision detection + extension-skill discovery. We were reimplementing a worse version of all of this.</td></tr>
+</table>
+
+<h2>Tradeoffs</h2>
+<table>
+<tr><th>id</th><th>tradeoff</th></tr>
+<tr><td>T-1</td><td>Async API breaks any in-process caller that expected sync. Audited: only <code>server.js</code> handleApi calls <code>api.getInitialInput</code>; that handler is wrapped in <code>try/catch</code> and can become async safely.</td></tr>
+<tr><td>T-2</td><td>Dynamic import of a non-dep package is brittle &mdash; if the user's pi install moves, we lose byte-exactness and fall back. Mitigated by reusing the existing <code>candidatePiInstallDirs()</code> resolver and surfacing the fallback in the response <code>notes</code>.</td></tr>
+<tr><td>T-3</td><td>We can't see CLI overrides (<code>--system-prompt</code>, <code>--append-system-prompt</code>, <code>--no-skills</code>, custom tool sets) from the JSONL, so the reconstruction is still "what pi would send with defaults today". Unchanged from v1, still surfaced in notes.</td></tr>
+</table>
+
+<h2>Open questions</h2>
+<table>
+<tr><th>id</th><th>question</th></tr>
+<tr><td>Q-1</td><td>pi's <code>getAgentDir()</code> uses <code>$HOME/.pi/agent</code>. If a user sets <code>PI_HOME</code> or similar at session run time and we don't see that in the JSONL, our reconstruction will read the default location. Probably fine for v1.</td></tr>
+</table>
+
+<h2>Files changed</h2>
+<ul>
+<li><code>src/initial-input.js</code> &mdash; new <code>loadPi()</code> helper, <code>buildInitialInputPi()</code> async path delegating to pi exports, fallback to legacy renderer; <code>buildInitialInput</code> is now async</li>
+<li><code>src/api.js</code> &mdash; <code>getInitialInput</code> is async</li>
+<li><code>server.js</code> &mdash; handler awaits <code>api.getInitialInput</code></li>
+<li><code>test/initial-input.test.js</code> &mdash; new: asserts that the rendered string equals <code>pi.buildSystemPrompt(...)</code> for a synthetic fixture session</li>
+</ul>
+
+<h2>Tests run</h2>
+<ul>
+<li><code>node test/initial-input.test.js</code> &mdash; new test, asserts byte-exact match</li>
+<li><code>node test/api.test.js</code>, <code>node test/parser.test.js</code> &mdash; regression</li>
+</ul>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>undefined</title>
+<style>:root{--bg:#0b0d10;--bg-elev:#14181d;--bg-card:#181d23;--border:#232a33;--text:#e6edf3;--text-dim:#9aa7b4;--text-mute:#6b7785;--accent:#7cc4ff;--accent-2:#a3e6b1;--warn:#ffb86b;--conf:#b794f4;--code-bg:#0f1318;--radius:10px;--radius-sm:6px;--maxw:980px;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif}@media (prefers-color-scheme:light){:root{--bg:#fafbfc;--bg-elev:#fff;--bg-card:#fff;--border:#e5e9ee;--text:#1a1f26;--text-dim:#4a5562;--text-mute:#7b8593;--accent:#0969da;--accent-2:#1a7f37;--warn:#9a6700;--conf:#7e3ce8;--code-bg:#f6f8fa}}*{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}.page{max-width:var(--maxw);margin:0 auto;padding:48px 24px 96px}h1,h2,h3{font-weight:600;letter-spacing:-.01em;line-height:1.25}h1{font-size:34px;margin:0 0 8px}h2{font-size:22px;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid var(--border)}h3{font-size:16px;margin:0}p{margin:0 0 14px;color:var(--text-dim)}code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:1px 6px;border-radius:4px;border:1px solid var(--border)}strong{color:var(--text)}em{color:var(--text-dim);font-style:italic}.lede{font-size:17px;color:var(--text-dim);margin:0 0 18px}.block{background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin:0 0 24px}.metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:18px}.metric{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px}.metric__val{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--text);letter-spacing:-.02em}.metric__lbl{font-size:11px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.04em;margin-top:4px}.rec{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:18px 20px;margin:0 0 14px}.rec__head{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}.rec__rank{font-family:var(--mono);font-size:12px;color:var(--text-mute);background:var(--bg);padding:2px 8px;border-radius:999px;border:1px solid var(--border)}.rec__title{flex:1 1 auto;min-width:200px;font-size:16px;color:var(--text)}.rec__meta{margin:0;display:grid;grid-template-columns:130px 1fr;gap:6px 16px;font-size:14px}.rec__meta dt{color:var(--text-mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding-top:2px}.rec__meta dd{margin:0;color:var(--text-dim)}.badge{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text-dim);background:var(--bg);white-space:nowrap}.badge--conf{color:var(--conf)}.badge--high{color:var(--accent-2)}.badge--med{color:var(--warn)}.badge--low{color:var(--text-mute)}ul,ol{margin:0 0 14px;padding-left:22px;color:var(--text-dim)}li{margin-bottom:6px}li strong{color:var(--text)}.tier2 li{margin-bottom:10px}.muted{color:var(--text-mute);font-size:13px}.callout{background:var(--bg-card);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:14px 18px;margin:0 0 18px}.callout ul{margin:0}.artifacts code{background:var(--bg)}.run{margin-top:24px;padding-top:16px;border-top:1px solid var(--border);color:var(--text-mute);font-family:var(--mono);font-size:12px}@media (max-width:640px){.page{padding:24px 14px 64px}.rec__meta{grid-template-columns:1fr}.rec__meta dt{padding-top:8px}h1{font-size:26px}}</style>
+</head>
+<body>
+<div class="page">
+<section class="block" id="hero">
+  
+    <h1>Lookback Report</h1>
+    <p class="lede">Evidence-ranked findings from a multi-specialist analysis of recent pi sessions.</p>
+  
+  <p><strong>What changed, what worked, and what to fix next — ranked by impact, confidence, and effort.</strong></p>
+  <p class="muted"><code>analyze.js</code> walks 385 jsonl sessions; an evidence pack feeds a 6-specialist parallel workflow plus a synthesizer. Ranking = impact × confidence ÷ effort, with cross-specialist dedup so each recommendation appears once with its strongest support.</p>
+  <div class="metric-grid">
+    <div class="metric"><div class="metric__val">385</div><div class="metric__lbl">sessions analyzed</div></div>
+    <div class="metric"><div class="metric__val">6</div><div class="metric__lbl">specialist agents</div></div>
+    <div class="metric"><div class="metric__val">1</div><div class="metric__lbl">synthesizer pass</div></div>
+  </div>
+</section>
+<section class="block" id="top10">
+  <h2>Top recommendations (ranked, confidence-scored)</h2>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#1</span>
+      <h3 class="rec__title">Failed-retry loop breaker with hypothesis-change gate</h3>
+      <span class="badge badge--conf">conf 0.90</span>
+      <span class="badge badge--high">impact: high</span>
+      <span class="badge badge--low">effort: low</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd>681 failed-retry loops corpus-wide (~1.77 / session); largest single waste category. Top offender: <code>test pi chrome</code> session (37 retries, $106, 317 tool calls).</dd>
+      <dt>Action</dt><dd>Per-(tool, target) failure counter. On 3rd deterministic failure (ENOENT, EPERM, syntax, "not unique") inject a forced-reasoning turn demanding a new hypothesis or escalation. Transient errors keep free backoff retries.</dd>
+      <dt>Expected outcome</dt><dd>Eliminate the bulk of those 681 loops; conservatively trim 10–20% off tail-session tool-call counts and proportionally cut the p95+ $/session.</dd>
+    </dl>
+  </article>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#2</span>
+      <h3 class="rec__title">Duplicate-arg replay detector + cached inline + escalation</h3>
+      <span class="badge badge--conf">conf 0.88</span>
+      <span class="badge badge--high">impact: high</span>
+      <span class="badge badge--low">effort: low</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd>537 exact-replay calls (tool + args byte-identical), concentrated in long sessions — 89/317 in <code>test pi chrome</code>, 77/414 in the implementation-notes loop. Zero new information for non-zero cost.</dd>
+      <dt>Action</dt><dd>Session-scoped LRU keyed by (tool, normalized_args) for idempotent tools (Read, Grep, find_files, ctx_search, ctx_execute_file). 2nd identical call returns cached result with <code>[cached]</code>; 3rd forces a planning turn; 4th escalates to summarize-and-handoff. Bash/network stay non-cacheable.</dd>
+      <dt>Expected outcome</dt><dd>Directly trims input-token spend on the long-session tail; visibly shortens sessions that loop on the same Read/Grep.</dd>
+    </dl>
+  </article>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#3</span>
+      <h3 class="rec__title">PreToolUse orchestration gate on session-first multi-file mutations</h3>
+      <span class="badge badge--conf">conf 0.82</span>
+      <span class="badge badge--high">impact: high</span>
+      <span class="badge badge--med">effort: medium</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd><code>workflow</code> calls = 0/385. <code>subagent</code> used in 18% of sessions (AGENTS.md floor: &gt;30%). Cross-corpus subagent / (write+edit+bash) = 0.035 — 10× under the explicit floor. Prose loses to conversational tempo.</dd>
+      <dt>Action</dt><dd>Extension hook <code>orchestration-gate</code>: when the first Write/Edit/Bash-mutate of a session touches &gt;1 directory or creates &gt;1 new file AND prior subagent dispatches = 0, block. Return structured remediation naming <code>/parallel-research</code>, <code>/parallel-context-build</code>, or scout-async. Explicit <code>--ack-skip-orchestration &lt;reason&gt;</code> bypass, logged for self-grading.</dd>
+      <dt>Expected outcome</dt><dd>Moves subagent adoption from 18% toward the &gt;30% target; cuts parent-context bloat (and downstream $) on the heaviest-cost session class.</dd>
+    </dl>
+  </article>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#4</span>
+      <h3 class="rec__title">Real-tool few-shot examples + batched-tool description leadership</h3>
+      <span class="badge badge--conf">conf 0.80</span>
+      <span class="badge badge--high">impact: high</span>
+      <span class="badge badge--low">effort: low</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd>Parallel/serial ratio 0.127 despite explicit directive. Current system-prompt example uses a fictional <code>example_complex_tool</code> — models pattern-match to examples, not abstractions.</dd>
+      <dt>Action</dt><dd>(a) Replace the fake-tool example with 2–3 real-tool examples (parallel <code>Read × 3</code>; <code>Grep + find_files + Read</code>; multi-command <code>ctx_batch_execute</code>) annotated "independent → one block." (b) Edit descriptions of <code>ctx_batch_execute</code>, <code>fff_multi_grep</code>, <code>web_search</code> to lead with the batch use-case. (c) Add to <code>ctx_execute</code>: "For ≥2 independent commands, use <code>ctx_batch_execute</code> instead."</dd>
+      <dt>Expected outcome</dt><dd>Lift parallel/serial ratio from 0.127 toward 0.25+; cut wall-clock latency on read-heavy turns.</dd>
+    </dl>
+  </article>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#5</span>
+      <h3 class="rec__title">Verify prompt-caching is enabled on the stable system-prompt prefix</h3>
+      <span class="badge badge--conf">conf 0.75</span>
+      <span class="badge badge--high">impact: high</span>
+      <span class="badge badge--low">effort: low</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd>The system prompt (skills + AGENTS.md + tool descriptions) is ~30 KB and identical turn-over-turn within a session. 385 sessions × multi-turn × 30 KB ≈ a meaningful share of $1,951 if not cached.</dd>
+      <dt>Action</dt><dd>Audit pi's Anthropic client wrapper for <code>cache_control: {type:'ephemeral'}</code> on the stable system-prompt block and the skills/AGENTS.md region. Add a regression test asserting prefix-hash stability across turns. If absent, enable.</dd>
+      <dt>Expected outcome</dt><dd>If currently off: ~90% cut on cached-prefix input cost — plausibly 20–40% of total $1,951. If on: confirms and closes the question.</dd>
+    </dl>
+  </article>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#6</span>
+      <h3 class="rec__title">Block interactive-TTY commands at the Bash tool boundary</h3>
+      <span class="badge badge--conf">conf 0.78</span>
+      <span class="badge badge--high">impact: high</span>
+      <span class="badge badge--low">effort: low</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd>"sudo: a terminal is required to read the password" loop pattern across Bash's 271 errors (5.6% rate). The failure looks like "no output" rather than "needs TTY", so the model retries.</dd>
+      <dt>Action</dt><dd>Pre-flight Bash commands against a deny/needs-TTY list (<code>sudo</code> without <code>-n</code>, interactive <code>ssh</code>, <code>vim</code>, <code>less</code> without piping). Return a structured error naming the cause ("requires TTY; rerun with <code>sudo -n</code> or pipe input") instead of letting the process hang.</dd>
+      <dt>Expected outcome</dt><dd>Removes a contributor to both the 681 failed-retries and long-session tail durations.</dd>
+    </dl>
+  </article>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#7</span>
+      <h3 class="rec__title">Fuzzy-fallback Edit.oldText anchoring + stale-cache invalidation</h3>
+      <span class="badge badge--conf">conf 0.82</span>
+      <span class="badge badge--high">impact: high</span>
+      <span class="badge badge--med">effort: medium</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd>Edit's 6.3% error rate is dominated by "oldText not unique / not found" — usually whitespace/CRLF drift, or anchoring against a stale Read cache after another tool mutated the file. The Read-retry-after-Edit pattern is the signature of anchor staleness.</dd>
+      <dt>Action</dt><dd>Two-tier match: exact first, then whitespace-normalized (CRLF/LF, trailing whitespace, tab/space drift). Accept only if exactly one normalized candidate; otherwise return the candidate list for disambiguation. Hook write tools to bump a per-path version counter that invalidates Read caches.</dd>
+      <dt>Expected outcome</dt><dd>Cuts Edit-retry-after-Read churn — contributor to both failed-retries (681) and dup-arg Reads (subset of 537).</dd>
+    </dl>
+  </article>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#8</span>
+      <h3 class="rec__title">Per-session cost + orchestration telemetry ledger (JSONL)</h3>
+      <span class="badge badge--conf">conf 0.90</span>
+      <span class="badge badge--high">impact: high</span>
+      <span class="badge badge--med">effort: medium</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd>This analysis ran on aggregate-only data; per-session cost histogram, model/tier distribution, task-class breakdown, per-error-cluster counts, and per-session orchestration ratios are not in the corpus. Every recommendation below 0.85 confidence carries residual uncertainty for this reason.</dd>
+      <dt>Action</dt><dd>Cost-and-orchestration hook appending JSONL to <code>~/.pi/telemetry/{cost,orchestration}.jsonl</code>: <code>{session_id, task_class, tool, model, input_tokens, output_tokens, cached_tokens, cost_usd, ts}</code> plus per-session rollup <code>{write_n, edit_n, bash_mutate_n, subagent_n, async_n, workflow_n, ratio}</code>. Ship <code>pi cost</code> and <code>pi sessions analyze --orchestration</code> CLIs. Local-only, opt-in for upload.</dd>
+      <dt>Expected outcome</dt><dd>Converts ≥10 second-tier items from "directional 0.55–0.75" to measured numbers within a week of new data. Indirect impact but the highest-leverage enabler.</dd>
+    </dl>
+  </article>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#9</span>
+      <h3 class="rec__title">Hard tool-call ceiling with forced-summarization at p99 (~260 calls)</h3>
+      <span class="badge badge--conf">conf 0.78</span>
+      <span class="badge badge--high">impact: high</span>
+      <span class="badge badge--med">effort: medium</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd>p99 = 258 tool calls; max = 414. The ~60% gap above p99 is the long tail consistent with runaway loops, not legitimately large jobs. Reinforced by failed-retry and dup-arg counts concentrating in the same sessions.</dd>
+      <dt>Action</dt><dd>Circuit-breaker at ~260 calls: inject a synthetic system turn forcing summarize-to-disk → declare remaining work as todos → hand off to a fresh-context continuation that inherits the digest. Non-destructive. Exempt sessions whose recent N calls show diverse tool/arg signatures.</dd>
+      <dt>Expected outcome</dt><dd>Bounds worst-case session $. Capping the max-414 sessions at ~260 with handoff trims ~150 calls × avg-cost from the worst sessions — disproportionate $ impact on the long-tail.</dd>
+    </dl>
+  </article>
+
+  <article class="rec">
+    
+      <span class="rec__rank">#10</span>
+      <h3 class="rec__title">Flip <code>subagent</code> dispatch default to <code>async: true</code></h3>
+      <span class="badge badge--conf">conf 0.72</span>
+      <span class="badge badge--med">impact: medium</span>
+      <span class="badge badge--low">effort: low</span>
+    
+    <dl class="rec__meta">
+      <dt>Evidence</dt><dd>Of subagent-using sessions, only 11/18 ≈ 61% used async. ~40% of delegations block the parent despite AGENTS.md saying "Foreground is the explicit opt-out, not the default." <code>workflow</code> already defaults <code>background: true</code> — precedent exists.</dd>
+      <dt>Action</dt><dd>Flip schema default of <code>async</code> in the subagent tool definition. Update the system-prompt guideline that currently says <code>async (default: false)</code>. One release of dual-default migration behind a config flag.</dd>
+      <dt>Expected outcome</dt><dd>Moves toward AGENTS.md's prescribed posture; reduces parent-session context bloat on the 40% currently blocking. Compounds with #3.</dd>
+    </dl>
+  </article>
+</section>
+<section class="block" id="second-tier">
+  <h2>Second tier (ship after telemetry makes them measurable)</h2>
+  <p class="muted">Sixteen items in the confidence band <code>0.55–0.78</code>. They are credible but under-measured against the top tier; #8 (the telemetry ledger) is the lever that converts most of them into ranked, evidence-backed work.</p>
+  <ul class="tier2">
+    <li><strong>Default new workflow agents to medium tier; require opt-in for big.</strong> <span class="badge badge--conf">0.55</span> <span class="muted">Plausible mechanism, no tier-distribution evidence yet — needs telemetry on per-agent model picks before flipping the default.</span></li>
+    <li><strong>Hard per-session $ budget with graceful tier degradation.</strong> <span class="badge badge--conf">0.60</span> <span class="muted">Long-tail cost shape is inferred from tool-call counts; #8 will calibrate thresholds before this can ship safely.</span></li>
+    <li><strong>Mandatory <code>ctx_execute</code> / <code>ctx_batch_execute</code> for tool outputs &gt;20 lines.</strong> <span class="badge badge--conf">0.70</span> <span class="muted">Promote context-mode routing from advisory to default-on for new installs; the routing already exists, only the default is conservative.</span></li>
+    <li><strong>Per-session <code>subagent : Write</code> ratio in the TUI status line.</strong> <span class="badge badge--conf">0.70</span> <span class="muted">In-loop visibility nudge with precedent — todo lists work for the same reason: cheap, persistent, low-friction.</span></li>
+    <li><strong>Promote named recipes (<code>/parallel-review</code>, <code>/review-loop</code>, etc.) to first-class slash commands or saved workflows.</strong> <span class="badge badge--conf">0.78</span> <span class="muted">Zero <code>workflow</code> calls across 385 sessions says the authoring surface is too expensive on demand; pre-bake the common shapes.</span></li>
+    <li><strong>Fix the context-mode active-banner to mention subagent precedence.</strong> <span class="badge badge--conf">0.74</span> <span class="muted">One-line change at injection time; per-turn banner beats a per-session doc the model has long forgotten.</span></li>
+    <li><strong>Auto-upgrade detection + structured "outdated" result for <code>ctx_*</code>.</strong> <span class="badge badge--conf">0.74</span> <span class="muted">An outdated-version warning appears in essentially every <code>ctx_*</code> error in the corpus; surface it as a typed result, not a string.</span></li>
+    <li><strong>MCP timeout retry-with-backoff at the harness layer.</strong> <span class="badge badge--conf">0.70</span> <span class="muted">Transparent retry plus a circuit breaker instead of bubbling opaque timeouts up to the model, which then triggers the failed-retry loops counted in #1.</span></li>
+    <li><strong><code>ask_user_question</code> field-level error locality</strong> instead of whole-questionnaire reject. <span class="badge badge--conf">0.76</span> <span class="muted">22.4% error rate is largely schema-validation churn — pinpoint the offending field, do not invalidate the whole batch.</span></li>
+    <li><strong>Sliding-window context compactor triggered by call density,</strong> not just tokens. <span class="badge badge--conf">0.70</span> <span class="muted">Token-only thresholds miss the runaway-loop shape, which is many small calls rather than one large blob.</span></li>
+    <li><strong>Turn-scoped snapshot for goal + standing-orders state</strong> (fixes <code>GOAL-STALE</code> in-turn bouncing). <span class="badge badge--conf">0.78</span> <span class="muted">A consistent in-turn view of goal/standing-orders prevents the bouncing-state class of errors that cluster on goal-managing tools.</span></li>
+    <li><strong>Per-turn batching detector</strong> with a system-reminder feedback channel. <span class="badge badge--conf">0.62</span> <span class="muted">Detect ≥2 independent serial calls in one turn and emit a single reminder, not an avalanche.</span></li>
+    <li><strong>Auto-fanout escalation at the p95 tool-call mark.</strong> <span class="badge badge--conf">0.60</span> <span class="muted">Earlier and softer than #9's hard ceiling — nudge to a planner subagent before the circuit breaker has to fire.</span></li>
+    <li><strong>Chrome-extension liveness probe with degrade to <code>fetch_content</code> + direct API.</strong> <span class="badge badge--conf">0.62</span> <span class="muted"><code>chrome_tab</code> 53% error rate, <code>chrome_evaluate</code> 27% — degrade gracefully rather than letting the agent loop on a dead bridge.</span></li>
+    <li><strong>Explicit <code>/tempo-mode</code> opt-in</strong> with end-of-session "what should have been orchestrated" report. <span class="badge badge--conf">0.55</span> <span class="muted">Make the conversational-tempo bypass legible and accountable instead of silent and habitual.</span></li>
+    <li><strong>Planning-prompt convention:</strong> emit <code>Parallel set: {tools}</code> before each tool block. <span class="badge badge--conf">0.58</span> <span class="muted">A textual pre-commit that makes the model's batching intent visible to both the harness and the user — cheap reinforcement of #4.</span></li>
+  </ul>
+  <aside class="callout">
+    <p>Why these sit below the top ten: each one is plausible, but its sizing leans on inference rather than measurement. Ship <span class="muted">#8</span> first, let one week of <code>~/.pi/telemetry/*.jsonl</code> accumulate, then re-rank this list against real per-task-class cost and orchestration-ratio numbers. Expect at least three of these to climb into the top tier — likely the recipe-promotion item, the goal/standing-orders snapshot, and the <code>ctx_batch_execute</code> default — and one or two to fall off entirely.</p>
+  </aside>
+</section>
+
+<section class="block" id="usage">
+  <h2>What I (the user) should do differently</h2>
+  <p class="muted">These are usage-side, not harness-side. Until the runtime gates above ship, they are the contract; after the gates ship, they are still the cheap path that avoids the gate firing in the first place.</p>
+  <ol class="usage">
+    <li><strong>Use <code>workflow</code> / <code>subagent</code>-async on multi-file work.</strong> The corpus shows literally zero <code>workflow</code> calls and only 11% of sessions using async — and I am the user across most of those sessions. The AGENTS.md HARD RULE was added precisely because of this pattern; treat it as a contract until <span class="muted">#3</span> lands as a runtime gate.</li>
+    <li><strong>Stop saying "go ahead" or "just ship it" to skip orchestration.</strong> Standing orders explicitly call out conversational tempo as the bypass that is not supposed to work. Whether or not the harness gates it tomorrow, give the agent an actual mandate to delegate instead of an implicit license to plow through.</li>
+    <li><strong>Run <code>/ctx-upgrade</code> and <code>/ctx-doctor</code> periodically.</strong> Outdated context-mode is a contributor to disk-I/O and MCP-timeout errors; the outdated-version warning was visible in essentially every <code>ctx_*</code> error in the corpus. A two-minute upkeep beats debugging a stale-binary failure inside a paid session.</li>
+    <li><strong>Stop debugging chrome-extension flakiness inside a coding session.</strong> The $106 <code>test pi chrome</code> session is the single most expensive in the corpus — highest dup-arg count, highest failed-retry count, and the loop never converged. When the extension is broken, the right move is to file a fix against the extension, not iterate against it inside an agent loop.</li>
+    <li><strong>For long investigative sessions, dispatch a planner subagent at ~p90 (≈90 tool calls)</strong> rather than waiting for the harness to enforce it. The 414-call <code>implementation-notes</code> session is the only one in the corpus that hit <code>stopReason="length"</code>; a midway re-plan would almost certainly have averted it, and it costs one cheap subagent call to find out.</li>
+  </ol>
+</section>
+<section class="block" id="meta">
+  <h2>Meta-notes &amp; artifacts</h2>
+  <aside class="callout">
+    <ul>
+      <li>The aggregate JSON has per-session rows, but raw user prompts and tool arguments were deliberately not sampled beyond the first 200 chars (privacy posture). A per-task-class breakdown (feature / refactor / debug / conversation) would let us size recommendations #3, #4, and #9 precisely. Easiest path: cluster the <code>firstUserPrompt</code> field in <code>sessions_summary.json</code> by topic.</li>
+      <li>We do not yet know whether prompt caching is on — recommendation #5 collapses to a no-op if it is.</li>
+      <li>90 turns ended with <code>stopReason="error"</code> and 30 with <code>aborted</code>; those are worth a separate pass to see if they cluster on specific tools or models.</li>
+      <li>The corpus is 94% <code>claude-opus-4-7</code>. Per-task tiering (Haiku for grep/read fan-out, Sonnet for synthesis, Opus only for judgment) is plausibly the largest single dollar cut available <span class="muted">after</span> prompt caching is verified, but lacks direct evidence in this corpus.</li>
+    </ul>
+  </aside>
+  <h3>Artifacts</h3>
+  <ul class="artifacts">
+    <li><code>analyze.js</code> — JSONL walker, per-session metric extractor.</li>
+    <li><code>sessions_summary.json</code> <span class="muted">(~825 KB)</span> — per-session rows with tool counts, errors, costs, friction signals.</li>
+    <li><code>aggregate.json</code> — cross-corpus rollups, top-N session lists.</li>
+    <li><code>evidence_pack.md</code> — distilled signal pack fed to the workflow.</li>
+    <li><code>FINDINGS.md</code> — synthesis report (this document's source).</li>
+  </ul>
+  <footer class="run">Workflow run: pi_sessions_optimization · 7 agents · 392,566 tokens · $2.89.</footer>
+</section>
+</div>
+</body>
+</html>

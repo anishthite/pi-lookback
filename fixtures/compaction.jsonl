@@ -1,0 +1,7 @@
+{"type":"session","version":3,"id":"fixt-compaction","timestamp":"2026-06-04T00:00:00.000Z","cwd":"/tmp/fixt"}
+{"type":"message","id":"u1","parentId":null,"timestamp":"2026-06-04T00:00:01.000Z","message":{"role":"user","content":[{"type":"text","text":"long convo"}],"timestamp":1}}
+{"type":"message","id":"a1","parentId":"u1","timestamp":"2026-06-04T00:00:02.000Z","message":{"role":"assistant","content":[{"type":"text","text":"ok"}],"stopReason":"end_turn","timestamp":2}}
+{"type":"compaction","id":"c1","parentId":"a1","timestamp":"2026-06-04T00:00:03.000Z","summary":"Compacted goal X","firstKeptEntryId":"a1","tokensBefore":12345,"fromHook":false,"details":{"readFiles":[],"modifiedFiles":[]}}
+{"type":"message","id":"u2","parentId":"c1","timestamp":"2026-06-04T00:00:04.000Z","message":{"role":"user","content":[{"type":"text","text":"continue"}],"timestamp":4}}
+{"type":"message","id":"a2","parentId":"u2","timestamp":"2026-06-04T00:00:05.000Z","message":{"role":"assistant","content":[{"type":"text","text":"continuing"}],"stopReason":"end_turn","timestamp":5}}
+{"type":"compaction","id":"c2","parentId":"a2","timestamp":"2026-06-04T00:00:06.000Z","summary":"second compaction","firstKeptEntryId":"a2","tokensBefore":15000,"fromHook":false}

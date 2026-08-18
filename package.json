@@ -1,0 +1,24 @@
+{
+  "name": "pi-lookback",
+  "version": "0.1.0",
+  "description": "Local GUI for reviewing past pi agent sessions as rich traces.",
+  "private": true,
+  "type": "commonjs",
+  "main": "server.js",
+  "bin": {
+    "pi-lookback": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node test/run-all.js",
+    "test:cc": "node test/sources-claude-code.test.js",
+    "metrics": "node test/metrics.js",
+    "metrics:cc": "node test/metrics.js --source claude-code",
+    "metrics:both": "node test/metrics.js --source both"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

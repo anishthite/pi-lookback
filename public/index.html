@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>pi-lookback</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">pi-lookback</div>
+      <div class="globalsearch">
+        <input id="searchInput" type="search" placeholder="Search prompts, tool args, output, commands…" />
+        <span id="searchStatus" class="meta"></span>
+      </div>
+      <div class="topstats" id="topStats"></div>
+    </header>
+
+    <main class="layout">
+      <!-- LIBRARY VIEW -->
+      <section id="library" class="view">
+        <div class="filters">
+          <label>Sort
+            <select id="sortSel">
+              <option value="recent">Recent</option>
+              <option value="score">Review-worthy</option>
+              <option value="cost">Cost</option>
+              <option value="errors">Errors</option>
+              <option value="duration">Duration</option>
+            </select>
+          </label>
+          <label>Source
+            <select id="fSource">
+              <option value="">All</option>
+            </select>
+          </label>
+          <label><input type="checkbox" id="fErrors"> Has errors</label>
+          <label><input type="checkbox" id="fBranches"> Has branches</label>
+          <label><input type="checkbox" id="fCompactions"> Has compactions</label>
+          <label><input type="checkbox" id="fSidechain"> Has subagent</label>
+          <label>Project <input id="fProject" type="text" placeholder="filter by path"></label>
+          <label>Model <input id="fModel" type="text" placeholder="claude-opus"></label>
+          <span id="libCount" class="meta"></span>
+        </div>
+        <div id="libraryList" class="library-list"></div>
+      </section>
+
+      <!-- SESSION VIEW (3 panes) -->
+      <section id="session" class="view hidden">
+        <div class="session-topbar">
+          <button id="backBtn">← Library</button>
+          <div id="sessionTitle" class="title"></div>
+          <div id="sessionMeta" class="meta"></div>
+          <div class="session-actions">
+            <button id="prevSignalBtn" title="Prev signal">◀ signal</button>
+            <button id="nextSignalBtn" title="Next signal">signal ▶</button>
+            <button id="prevErrorBtn" title="Prev error">◀ error</button>
+            <button id="nextErrorBtn" title="Next error">error ▶</button>
+            <label class="toggle" title="Show tool-call arguments inline (e.g. the bash command instead of just &quot;bash&quot;)"><input type="checkbox" id="showParamsToggle"> Show tool params</label>
+            <button id="initialInputBtn" title="Show the reconstructed system prompt / initial input sent on the first turn">Initial request</button>
+            <a id="exportBtn" href="#" target="_blank">Export HTML</a>
+          </div>
+        </div>
+        <div class="session-stats" id="sessionStats"></div>
+        <div class="session-signals" id="sessionSignals"></div>
+        <div class="token-timeline" id="tokenTimeline"></div>
+        <div class="three-pane">
+          <aside class="pane tree-pane">
+            <h4>Timeline</h4>
+            <div id="treePane"></div>
+          </aside>
+          <section class="pane trace-pane">
+            <div id="tracePane"></div>
+          </section>
+          <aside class="pane inspector-pane">
+            <h4>Inspector</h4>
+            <div id="inspectorPane" class="meta">Select an entry to inspect.</div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- SEARCH RESULTS VIEW -->
+      <section id="searchView" class="view hidden">
+        <div class="search-header">
+          <button id="searchBackBtn">← Library</button>
+          <div id="searchTitle"></div>
+        </div>
+        <div id="searchResults"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal for full-message / initial-request view -->
+  <div id="msgModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="msgModalTitle">
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal-panel">
+      <header class="modal-head">
+        <div id="msgModalTitle" class="title"></div>
+        <button class="modal-close" data-close="1" aria-label="Close">×</button>
+      </header>
+      <div id="msgModalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

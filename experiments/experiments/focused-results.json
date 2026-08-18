@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-06-05T02:54:27.755Z",
+  "findings": {
+    "dynamic_content_breaks_cache": true,
+    "bucketing_preserves_cache": true,
+    "plateau_pattern_observed": true,
+    "each_bust_expensive": true
+  },
+  "recommendations": [
+    "Quantize all dynamic counters (context-mode pruner-note)",
+    "Place dynamic content outside cache breakpoints",
+    "Use 2 long-lived breakpoints instead of 4 sliding ones",
+    "Enable 1-hour TTL for static system+tools prefix"
+  ]
+}

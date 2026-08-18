@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spec — pi-lookback MVP implementation</title>
+<meta name="task" content="Build the pi-lookback MVP and meet every acceptance-gate metric in docs/interface-plan.md">
+<meta name="date-started" content="2026-06-04">
+<meta name="date-updated" content="2026-06-04">
+<meta name="status" content="shipped">
+<meta name="blast-radius" content="med">
+<meta name="tags" content="mvp,gui,sessions,parser,signals,metrics">
+<meta name="related" content="2026-06-04-combine-lookback-plan-metrics.html">
+<style>
+  body { font: 14px/1.45 -apple-system, system-ui, sans-serif; max-width: 900px; margin: 1.5rem auto; padding: 0 1rem; color: #111; }
+  h1 { font-size: 20px; margin: 0 0 .25rem; }
+  h2 { font-size: 15px; margin: 1.4rem 0 .4rem; border-bottom: 1px solid #ddd; padding-bottom: .2rem; }
+  table { border-collapse: collapse; width: 100%; margin: .4rem 0 .8rem; }
+  th, td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: #f6f6f6; font-weight: 600; }
+  code, pre { font-family: ui-monospace, Menlo, monospace; }
+  code { background: #f1f1f1; padding: 1px 4px; border-radius: 3px; font-size: 12.5px; }
+  .blast-low { color: #2a7a2a; } .blast-med { color: #b85c00; } .blast-high { color: #b00020; font-weight: 600; }
+  .meta { color: #555; font-size: 12.5px; margin-bottom: .8rem; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 2px 14px; font-size: 13px; margin: .4rem 0 1rem; }
+  .kv b { color: #444; font-weight: 600; }
+  ul { margin: .3rem 0 .8rem 1.2rem; padding: 0; } li { margin: .15rem 0; }
+</style>
+</head>
+<body>
+
+<h1>pi-lookback MVP Implementation</h1>
+<p class="meta"><code>main</code> · worktree <code>/Users/anishthite/workspace/pi-lookback</code> · 2026-06-04 · status <b>shipped</b> · blast <span class="blast-med">med</span></p>
+
+<h2>Summary</h2>
+<div class="kv">
+  <b>Goal</b><div>Ship the Phase-1 MVP described in <code>docs/interface-plan.md</code> and pass every quantitative acceptance gate.</div>
+  <b>Surface</b><div><code>server.js</code>, <code>src/*</code>, <code>public/*</code>, <code>fixtures/*</code>, <code>test/*</code>, <code>README.md</code>.</div>
+  <b>Schema</b><div>Read-only consumer of pi v3 session JSONL files.</div>
+  <b>Mobile</b><div>Desktop-first; degrades on narrow viewports but not optimized.</div>
+  <b>Open Qs</b><div>0.</div>
+</div>
+
+<h2>Files</h2>
+<table>
+  <tr><th>Path</th><th>Kind</th><th>Delta</th></tr>
+  <tr><td><code>package.json</code></td><td>new</td><td>Project metadata, scripts (<code>start</code>, <code>test</code>, <code>metrics</code>). Zero runtime deps.</td></tr>
+  <tr><td><code>server.js</code></td><td>new</td><td>Node http server. Routes <code>/api/*</code> + serves <code>public/</code> statics. CLI flags <code>--port --host --sessions</code>.</td></tr>
+  <tr><td><code>src/scanner.js</code></td><td>new</td><td>Recursive *.jsonl discovery. Decodes pi's <code>--/foo-bar--</code> project-dir encoding.</td></tr>
+  <tr><td><code>src/parser.js</code></td><td>new</td><td>Tolerant JSONL parser. Normalizes every entry kind to a common shape with derived metadata. Records parse failures per line.</td></tr>
+  <tr><td><code>src/summary.js</code></td><td>new</td><td>Session-level aggregates: counts, totals, branch detection via parentId tree, review-worthy score heuristic.</td></tr>
+  <tr><td><code>src/signals.js</code></td><td>new</td><td>10 improvement-signal heuristics: failed_tool, failed_bash, repeated_failed_command, user_correction, long_no_tool_stretch, high_cost, branch_heavy, compaction_heavy, huge_output, truncated_output, aborted_assistant, verification_missing.</td></tr>
+  <tr><td><code>src/api.js</code></td><td>new</td><td>In-process API. mtime-keyed summary cache, LRU parsed cache, library listing, detail, search, global stats.</td></tr>
+  <tr><td><code>src/export-html.js</code></td><td>new</td><td>Standalone self-contained HTML export of any session.</td></tr>
+  <tr><td><code>public/index.html</code></td><td>new</td><td>Single-page shell: topbar, three views (library, session, search results).</td></tr>
+  <tr><td><code>public/app.js</code></td><td>new</td><td>Vanilla JS app. Library, three-pane session viewer, search, signal/error nav.</td></tr>
+  <tr><td><code>public/styles.css</code></td><td>new</td><td>Color-coded kind badges, density-first layout.</td></tr>
+  <tr><td><code>fixtures/*.jsonl</code></td><td>new</td><td>simple-linear, tool-success, tool-error, bash-failure, branching, compaction, unknown-entry, huge-output, corrupt.</td></tr>
+  <tr><td><code>test/parser.test.js</code></td><td>new</td><td>10 parser/summary/signals tests against fixtures.</td></tr>
+  <tr><td><code>test/api.test.js</code></td><td>new</td><td>9 HTTP API smoke tests against the fixture corpus.</td></tr>
+  <tr><td><code>test/metrics.js</code></td><td>new</td><td>End-to-end acceptance-gate verifier against <code>~/.pi/agent/sessions</code>. Emits <code>metrics-report.json</code>.</td></tr>
+  <tr><td><code>README.md</code></td><td>new</td><td>Quick start, architecture, measured metrics table, limitations.</td></tr>
+  <tr><td><code>docs/session-examples.json</code></td><td>new</td><td>Snapshot of one real example per entry kind (used during parser design).</td></tr>
+</table>
+
+<h2>Decisions</h2>
+<table>
+  <tr><th>ID</th><th>Choice · Rationale</th></tr>
+  <tr><td>D-001</td><td>Pure Node stdlib, zero runtime deps. Plan said "Node + React/Vite". MVP gets faster boot, no install pain, and the metrics gate (search p95 18ms, large session p95 37ms) doesn't need a framework.</td></tr>
+  <tr><td>D-002</td><td>Vanilla JS frontend instead of React. Same reasoning as D-001. Three views are simple enough that a 500-line app.js is more readable than a build chain.</td></tr>
+  <tr><td>D-003</td><td>Branch detection from parentId tree (children-per-parent count). The corpus has 0 <code>branch_summary</code> entries — relying only on that type would mis-report all branches as zero.</td></tr>
+  <tr><td>D-004</td><td>mtime-keyed summary cache. Re-parsing 352 files on every <code>/api/sessions</code> hit would blow the &lt;2s gate immediately. Cache keyed on (mtime, size) so external changes invalidate automatically.</td></tr>
+  <tr><td>D-005</td><td>Detail payload truncates very large text/output to 4 KB and flags <code>textTruncated/outputTruncated</code>. Keeps 700+ entry sessions snappy in the UI; raw bytes available via <code>/api/sessions/:id/entry/:entryId</code>.</td></tr>
+  <tr><td>D-006</td><td>Review-worthy score is a linear weighted sum: failed_tool×4 + failed_bash×6 + branches×5 + compactions×3 + min(cost×100, 40) + parseErrors×10 + (entryCount&gt;500 ? 5 : 0). Bash failures weigh more than tool errors because they imply repeat-without-progress.</td></tr>
+  <tr><td>D-007</td><td>Read-only enforced by never opening session files with write flags and by gate M9 (mtime invariant on 50 files across a representative browse pattern).</td></tr>
+  <tr><td>D-008</td><td>Heuristic correction-phrase regex over <code>{no(t)?, wrong, you forgot, actually, fix(ed)?, i said, that('s|is) (not|wrong), incorrect, stop, don't, undo}</code>. False-positive-tolerant by design — signal is for ranking, not labeling.</td></tr>
+</table>
+
+<h2>Deviations</h2>
+<table>
+  <tr><th>ID</th><th>From spec · Did · Reason</th></tr>
+  <tr><td>X-001</td><td>Plan said React/Vite. Shipped vanilla JS. Rationale in D-002; behavior parity preserved.</td></tr>
+  <tr><td>X-002</td><td>Plan mentioned <code>branch_summary</code> entries explicitly. None exist in current pi v3 corpus; branch detection falls back to parentId tree. Reversibility: when pi adds branch_summary entries, the parser already normalizes them; UI shows them as a separate kind.</td></tr>
+</table>
+
+<h2>Tradeoffs</h2>
+<table>
+  <tr><th>ID</th><th>Picked over Rejected · Reason</th></tr>
+  <tr><td>T-001</td><td>Lazy per-file parse with cache over upfront corpus index. Index would speed full-text search further, but adds disk-state to manage and isn't needed to pass the &lt;300ms p95 gate.</td></tr>
+  <tr><td>T-002</td><td>Linear trace render (one big list) over virtualized list. Largest session has 844 entries; renders comfortably without virtualization. If sessions ever pass ~5k entries this should be revisited.</td></tr>
+  <tr><td>T-003</td><td>One HTTP process serves API + statics over separate processes. Simpler ops, no CORS, easier to ship a single-binary later (e.g. <code>pkg</code>).</td></tr>
+</table>
+
+<h2>Assumptions</h2>
+<ul>
+  <li>A-001 · Sessions stay in pi v3 JSONL shape captured in <code>docs/session-examples.json</code>. If shape changes, parser falls back to <code>kind: 'unknown'</code> — verified by fixture <code>unknown-entry.jsonl</code>.</li>
+  <li>A-002 · Single-user local desktop usage. No auth, no multi-tenant, no remote sessions root.</li>
+  <li>A-003 · Cost figures from <code>usage.cost.total</code> are USD. Used in <code>high_cost</code> signal (&gt;$1.00) and library badges.</li>
+</ul>
+
+<h2>Reversibility</h2>
+<p>R-001 · <span class="blast-low">low</span>. Delete <code>pi-lookback/</code>; no files outside the workspace are touched and no global state is added.</p>
+
+<h2>Verification (acceptance gate)</h2>
+<p>Run: <code>node test/metrics.js</code> · See <code>metrics-report.json</code> for machine-readable record.</p>
+<table>
+  <tr><th>Gate</th><th>Target</th><th>Measured (352 real sessions)</th></tr>
+  <tr><td>M1 Real sessions loaded</td><td>≥100 or all available</td><td>352 / 352 on disk</td></tr>
+  <tr><td>M2 Parse success</td><td>≥98%</td><td>100.000% lines</td></tr>
+  <tr><td>M3 Events rendered = parsed</td><td>100%</td><td>4844 / 4844 across 30 sampled</td></tr>
+  <tr><td>M4 Find known session by text</td><td>&lt;10s manual; &lt;300ms automated</td><td>54 ms · 5 hits</td></tr>
+  <tr><td>M5 Failed tool call discoverable</td><td>&lt;10s</td><td>33 ms via signals filter</td></tr>
+  <tr><td>M6 Large session open p95</td><td>&lt;2s</td><td>37 ms (max 844 entries)</td></tr>
+  <tr><td>M7 Search latency p95</td><td>&lt;300 ms</td><td>18 ms · avg 11 ms</td></tr>
+  <tr><td>M8 Signal types surfaced</td><td>≥5</td><td>8 kinds</td></tr>
+  <tr><td>M9 Read-only safety</td><td>0 mtime changes</td><td>0 / 50</td></tr>
+  <tr><td>M10 GUI surfaces shipped</td><td>all UX files present</td><td>all present</td></tr>
+  <tr><td>TC Per-kind render coverage</td><td>100%</td><td>0 mismatches across 60 sampled</td></tr>
+  <tr><td>LP Library payload</td><td>&lt;2s</td><td>14 ms / 352 sessions</td></tr>
+  <tr><td>ID Library row stat fields</td><td>≥8</td><td>9 / 9</td></tr>
+  <tr><td>SF Failed-tool detection</td><td>100%</td><td>225 / 225 surfaced</td></tr>
+</table>
+<p><b>14 / 14 gates PASS. 0 required failed.</b></p>
+
+<h2>Followups</h2>
+<ul>
+  <li>L-001 · Replay-mode step controls (Phase 4).</li>
+  <li>L-002 · Compare-two-sessions diff view (Phase 4).</li>
+  <li>L-003 · Optional dagre/elk branch visualization for sessions with deep branching.</li>
+  <li>L-004 · Annotations / bookmarks / saved searches (Phase 4).</li>
+  <li>L-005 · Persist a search index (FTS5/lunr) once corpus grows past ~5k sessions if linear scan starts to miss the &lt;300ms p95.</li>
+  <li>L-006 · Tauri/Electron packaging when distribution to other users becomes a need.</li>
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "breakpointResults": {
+    "current": {
+      "busts": 12,
+      "tokensLost": 146176,
+      "plateauTurns": 0
+    },
+    "pinned": {
+      "busts": 0,
+      "tokensLost": 0,
+      "plateauTurns": 4
+    }
+  },
+  "dynamicResults": {
+    "stable_content": {
+      "busts": 0,
+      "tokensLost": 0
+    },
+    "rotating_counter": {
+      "busts": 19,
+      "tokensLost": 593.75
+    },
+    "bucketed_counter": {
+      "busts": 1,
+      "tokensLost": 31.75
+    }
+  },
+  "ttlResults": {
+    "5min_ttl": {
+      "busts": 9,
+      "tokensLost": 135000
+    },
+    "60min_ttl": {
+      "busts": 5,
+      "tokensLost": 75000
+    }
+  },
+  "totalBustReduction": 1477.8792,
+  "improvementPercent": 83.78000000000002
+}

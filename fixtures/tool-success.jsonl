@@ -1,0 +1,5 @@
+{"type":"session","version":3,"id":"fixt-tool-success","timestamp":"2026-06-04T00:00:00.000Z","cwd":"/tmp/fixt"}
+{"type":"message","id":"u1","parentId":null,"timestamp":"2026-06-04T00:00:01.000Z","message":{"role":"user","content":[{"type":"text","text":"list files"}],"timestamp":1}}
+{"type":"message","id":"a1","parentId":"u1","timestamp":"2026-06-04T00:00:02.000Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"tc1","name":"ls","arguments":{"path":"."}}],"provider":"anthropic","model":"claude-test","usage":{"totalTokens":10,"cost":{"total":0.0001}},"stopReason":"toolUse","timestamp":2}}
+{"type":"message","id":"r1","parentId":"a1","timestamp":"2026-06-04T00:00:03.000Z","message":{"role":"toolResult","toolCallId":"tc1","toolName":"ls","content":[{"type":"text","text":"file-a\nfile-b"}],"isError":false,"timestamp":3}}
+{"type":"message","id":"a2","parentId":"r1","timestamp":"2026-06-04T00:00:04.000Z","message":{"role":"assistant","content":[{"type":"text","text":"done"}],"stopReason":"end_turn","timestamp":4}}

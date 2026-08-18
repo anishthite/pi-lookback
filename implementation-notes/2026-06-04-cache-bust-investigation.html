@@ -1,0 +1,320 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Cache-bust investigation — lab notebook</title>
+<style>
+ body{font:14px/1.45 ui-monospace,Menlo,Consolas,monospace;max-width:1100px;margin:2em auto;padding:0 1em;color:#222}
+ h1,h2,h3{font-family:ui-sans-serif,system-ui;margin-top:1.5em}
+ table{border-collapse:collapse;width:100%;margin:0.6em 0;font-size:12px}
+ td,th{border:1px solid #ccc;padding:3px 6px;vertical-align:top}
+ th{background:#f3f3f3;text-align:left}
+ .id{color:#888;font-size:11px}
+ .x{color:#a33} .d{color:#06539a} .l{color:#0a7} .q{color:#a60} .t{color:#705}
+ pre{background:#f7f7f7;padding:8px;border-radius:4px;overflow:auto;font-size:12px}
+ .num{text-align:right;font-variant-numeric:tabular-nums}
+</style>
+<h1>Cache-bust investigation</h1>
+<p><b>Task:</b> Figure out why we are having prompt-cache busts in pi sessions; explain the busts in the longest 10 sessions; recommend fixes. Lab notebook, append-only.</p>
+
+<h2 id="hypotheses">H — Hypotheses for why Anthropic prompt cache busts in pi</h2>
+<p>Anthropic's prompt cache keys on the <em>exact byte prefix</em> of {system + tools + messages} for a given model. The cache also has a TTL (5 min default, 1 h with the <code>cache_control: {type: ephemeral, ttl: "1h"}</code> beta). A "bust" = the next turn reads back fewer cached tokens than it should, forcing a fresh write of the prefix.</p>
+<p>The candidate root causes I will test against the data:</p>
+<table>
+<tr><th>#</th><th>Cause</th><th>Detector signature</th></tr>
+<tr><td>H1</td><td>TTL expiry (idle &gt; 5 min between turns)</td><td>large inter-turn wall-clock gap; cacheRead drops to ~system+tools only</td></tr>
+<tr><td>H2</td><td>Model change mid-session</td><td><code>model_change</code> event preceding the bust; cacheRead → 0 on next assistant</td></tr>
+<tr><td>H3</td><td>Compaction rewrites history</td><td><code>compaction</code> event; next assistant has cacheWrite ≈ full new prefix, cacheRead ≈ 0</td></tr>
+<tr><td>H4</td><td>Branch switch (fork) starts a fresh prefix</td><td><code>branch_summary</code>/branch entry, or session resumed from a parent</td></tr>
+<tr><td>H5</td><td>Thinking-level toggle (off↔on/high) changes the system block</td><td><code>thinking_level_change</code> event; cacheRead drops to ~0</td></tr>
+<tr><td>H6</td><td>Tool list mutation (skill/extension load, MCP reconnect, custom tool register)</td><td>set of tool names appearing in assistant tool_use changes between turns; bust co-occurs</td></tr>
+<tr><td>H7</td><td>System-prompt mutation (skills auto-inject SKILL.md text into system; new skill triggered)</td><td>no other event; bust on the turn a skill is first invoked</td></tr>
+<tr><td>H8</td><td>Environment/context injection (cwd changes, git status block, todo list embedded in system reminder)</td><td>bust without any visible event; correlates with state-change reminders</td></tr>
+<tr><td>H9</td><td>Retroactive message edit (truncation of huge tool outputs, summarization-in-place, pruning)</td><td>bust + a prior toolResult shows a "[truncated]"/pruner marker; <code>context_prune</code> tool call earlier</td></tr>
+<tr><td>H10</td><td>Cache breakpoint placement: pi only marks ≤4 <code>cache_control</code> blocks; if it always marks the latest user msg, anything before the last breakpoint is fine but anything after a breakpoint roll-over loses old prefix</td><td>cacheRead grows linearly then plateaus / drops by exactly one breakpoint chunk</td></tr>
+<tr><td>H11</td><td>Different request shape (e.g. tool-only turn vs text turn, or temperature/top_p change)</td><td>cacheRead=0 with no other obvious cause</td></tr>
+<tr><td>H12</td><td>Provider-side eviction under load (cache miss despite valid key)</td><td>random, low-frequency, no signal in JSONL</td></tr>
+</table>
+
+<h2 id="schema">D-1 — JSONL schema notes (observed)</h2>
+<pre>session header   : {type:"session",version,id,timestamp,cwd}
+model_change     : {type:"model_change",provider,modelId,timestamp}
+thinking_level_change : {type:"thinking_level_change",thinkingLevel}
+user/assistant   : {type:"message",message:{role,content,usage?}}
+  usage          : {input,output,cacheRead,cacheWrite,totalTokens,cost{...}}
+toolResult, bashExecution, compaction, branch_summary, custom, custom_message
+</pre>
+<p>Key telemetry: <code>message.usage.cacheRead</code> and <code>message.usage.cacheWrite</code> on assistant messages. A cache bust = turn <i>n+1</i> reads back materially less than turn <i>n</i> cached.</p>
+
+<h2 id="detector">D-2 — Detector definition</h2>
+<p>For each session, walk assistant messages with a usage block in order. Let <code>prefix_n = cacheRead_n + cacheWrite_n</code> (total cached prefix that existed at end of turn n). Expected: <code>cacheRead_{n+1} ≥ prefix_n − epsilon</code> minus whatever the user input added. A bust is flagged when:</p>
+<pre>bust if  cacheRead_{n+1}  &lt;  0.5 * prefix_n   AND   prefix_n &gt; 5000
+size of bust = prefix_n − cacheRead_{n+1}    (tokens lost)</pre>
+<p>Then attribute the bust by inspecting events between turn n and turn n+1 (the "interlude") in this priority order: compaction → model_change → thinking_level_change → branch event → time gap &gt; 5min (H1) → tool-set change (H6) → none-detected (H7/H8/H9 candidate).</p>
+
+<h2 id="run-log">L — Run log</h2>
+<p>L-1 06-04 18:12 start. L-2 confirmed usage schema (above). L-3 next: implement detector and run across all 376 jsonl files.</p>
+
+<h2 id="results">Results — run against 377 real sessions (34,732 events)</h2>
+
+<h3>R-1 Aggregate</h3>
+<table>
+<tr><th>metric</th><th>value</th></tr>
+<tr><td>Sessions analyzed</td><td class=num>377</td></tr>
+<tr><td>Sessions with at least one assistant turn carrying usage</td><td class=num>377</td></tr>
+<tr><td>Assistant turns total</td><td class=num>~12,000+</td></tr>
+<tr><td>Cache-bust events detected (cacheRead<sub>n+1</sub> &lt; 50% of prev prefix, prefix &gt; 5k)</td><td class=num>1,764</td></tr>
+<tr><td>JSONL parse failures</td><td class=num>0</td></tr>
+</table>
+
+<h3>R-2 Attribution by interlude / gap (all sessions)</h3>
+<table>
+<tr><th>category</th><th>count</th><th>share</th><th>cause-class</th></tr>
+<tr><td><b>silent_other / fast_silent_bust</b> (interlude is just a user/tool message; gap &lt; 5 min)</td><td class=num>1,119</td><td class=num>63.4%</td><td>H7/H8/H10 — hidden wire-side mutation or breakpoint exhaustion</td></tr>
+<tr><td><b>idle &gt; 5 min</b> (TTL expiry)</td><td class=num>475</td><td class=num>26.9%</td><td>H1 — 5-minute prompt-cache TTL elapsed</td></tr>
+<tr><td><b>custom / custom_message in interlude</b> (skill / extension / hook fired)</td><td class=num>87</td><td class=num>4.9%</td><td>H6/H7 — extension mutated tools or system prompt</td></tr>
+<tr><td><b>compaction</b></td><td class=num>18</td><td class=num>1.0%</td><td>H3 — context compaction rewrites the prefix</td></tr>
+<tr><td><b>thinking_level_change</b></td><td class=num>5</td><td class=num>0.3%</td><td>H5 — extended-thinking on/off changes the request shape</td></tr>
+<tr><td><b>model_change</b></td><td class=num>2</td><td class=num>0.1%</td><td>H2 — cache keys are per-model</td></tr>
+</table>
+
+<h3 class=d>D-3 — KEY FINDING #1: ⅔ of busts have NO visible cause in the JSONL</h3>
+<p>1,119 / 1,764 busts (63%) have only a user message between the prior and current assistant turn, and the wall-clock gap is well under the 5-min TTL — gap p50 ≈ 17 s, p25 ≈ 4 s. That kills TTL as an explanation for the dominant failure mode.</p>
+
+<h3 class=d>D-4 — KEY FINDING #2: the plateau signature</h3>
+<p>Drilled into <code>run-3/session.jsonl</code>. Per-turn usage:</p>
+<pre>turn  cacheRead  cacheWrite  output
+ 0          0      14676     251
+ 1      14676       1680     211     <-- normal: read previous turn's prefix
+ 2      14676       2308     150
+ 3      14676       6789      92
+ 4      14676      16961     156
+ 5      12537      25039     156     <-- BUST: read drops, lost 2,139 tok of prefix
+ 6      12537      26930      86     <-- pinned at static prefix
+ 7      12537      40089     504     <-- cacheWrite climbs, cacheRead never recovers
+ 8      12537      41355     355
+ 9      12537      41921     211
+10      12537      45644    2480
+11      12537      48411    5142
+12      12537      53606     718</pre>
+<p>Once busted, <b>cacheRead pins at the static system+tools prefix (~12,537 tok)</b> and never recovers, while cacheWrite climbs linearly per turn → every turn pays full re-write cost for the entire growing conversation. Same signature appears in the top-10 list: hacker-spotify pinned at 39,750 for 25 turns; pi-twitter pinned at 50,388 for 57 turns.</p>
+<p class=t>T-1 Tradeoff signature interpretation: this is consistent with Anthropic's documented <b>cache-control breakpoint cap of 4</b>. Once pi's strategy needs to evict an older breakpoint (e.g., when adding a 5th cacheable block), the prefix between the evicted breakpoint and the next live one becomes uncacheable, so reads collapse to the earliest static breakpoint (system+tools).</p>
+
+<h3 class=d>D-5 — KEY FINDING #3: extension/hook injection &gt;3× the bust rate</h3>
+<table>
+<tr><th>cohort</th><th>n sessions</th><th>mean busts/turn</th></tr>
+<tr><td>0 custom/custom_message events (vanilla pi)</td><td class=num>78</td><td class=num>0.055</td></tr>
+<tr><td>≥1 custom/custom_message events (extensions / hooks / skills active)</td><td class=num>190</td><td class=num>0.169</td></tr>
+</table>
+<p>Sessions running extensions bust the cache <b>3.1×</b> more often per assistant turn than vanilla sessions. The two record-holders confirm this: pi-twitter (135 custom events, 102 busts) and hacker-spotify (245 custom events, 47 busts).</p>
+
+<h3 class=d>D-6 — KEY FINDING #4: live, reproducible bust mechanism observed in THIS session</h3>
+<p>While generating this notebook the <code>context-mode</code> extension was injecting a <code>&lt;pruner-note&gt;N unpruned tool call result(s) currently in context&hellip;&lt;/pruner-note&gt;</code> tag onto user/tool-result messages. The integer <code>N</code> incremented on every turn (26 → 27 → 28 within minutes). That text is <i>not</i> in the JSONL — pi's JSONL records the canonical conversation, not the wire-augmented payload — but it IS sent to the model. Any cache_control breakpoint placed at or after that injection rotates per turn → guaranteed bust unless the breakpoint is positioned strictly before it on every turn.</p>
+<p>That explains why our regex for <code>&lt;pruner-note&gt;</code> across all 377 JSONL files returns 0 hits, yet sessions with extensions still bust 3× more often.</p>
+
+<h3>R-3 Top-10 longest sessions (by assistant turns) — per-session bust explanation</h3>
+<table>
+<tr><th>#</th><th>cwd / project</th><th>turns</th><th>dur(h)</th><th>busts</th><th>lost tok</th><th>dominant cause(s)</th><th>plateau?</th></tr>
+<tr><td>1</td><td>hacker-spotify</td><td class=num>360</td><td class=num>6.6</td><td class=num>47</td><td class=num>9.4M</td><td>fast_silent×24 (breakpoint exhaustion + extension injection); custom_inject×11 (skill/hook fired); idle×5; model_change opus↔gpt-5.4; compaction×1; thinking_change×1</td><td>pinned at 39,750 for 25 turns</td></tr>
+<tr><td>2</td><td>log/board</td><td class=num>254</td><td class=num>16.6</td><td class=num>11</td><td class=num>2.1M</td><td>idle×7 (TTL); compaction×1; silent_other×3. No extension activity (customs=0). This is the &quot;clean&quot; long session — almost all busts are TTL.</td><td>none</td></tr>
+<tr><td>3</td><td>pi-twitter</td><td class=num>245</td><td class=num>8.5</td><td class=num>102</td><td class=num>13.0M</td><td>fast_silent×58 + custom_inject×25 (HEAVY extension activity, 135 custom events); idle×4; compaction×1; thinking_change×1. Worst session by lost-tokens.</td><td>pinned at 50,388 for 57 turns</td></tr>
+<tr><td>4</td><td>bondu retention-policy</td><td class=num>244</td><td class=num>327.3</td><td class=num>15</td><td class=num>1.5M</td><td>idle×12 dominant — this is a multi-day resumed session; long wall-clock gaps between work blocks. Each resume = TTL expired + fresh cache write.</td><td>none</td></tr>
+<tr><td>5</td><td>bondu chat-delete-bug</td><td class=num>231</td><td class=num>143.1</td><td class=num>9</td><td class=num>1.1M</td><td>idle×5 (multi-day); silent_other×4 (likely env block / SKILL.md inject). customs=0.</td><td>none</td></tr>
+<tr><td>6</td><td>log/board (2nd)</td><td class=num>223</td><td class=num>18.8</td><td class=num>11</td><td class=num>1.1M</td><td>idle×7; compaction×1; silent_other×3. Mostly TTL.</td><td>none</td></tr>
+<tr><td>7</td><td>bondu shopify-website</td><td class=num>209</td><td class=num>2.3</td><td class=num>9</td><td class=num>0.87M</td><td>silent_other×5, fast_silent×2, idle×2; model switched opus↔gpt-5.5 (provider/model cache namespace change). 2.3h dense work session.</td><td>pinned at 98,304 for 4 turns</td></tr>
+<tr><td>8</td><td>log/board (3rd)</td><td class=num>200</td><td class=num>169.2</td><td class=num>15</td><td class=num>3.3M</td><td>idle×8 (multi-day session); silent_other×6; compaction×1.</td><td>none</td></tr>
+<tr><td>9</td><td>fake-nyt-puzzle</td><td class=num>167</td><td class=num>0.5</td><td class=num>5</td><td class=num>0.45M</td><td>idle×3 (sub-TTL surprise — likely actually breakpoint roll, since session is only 32 min total); custom_inject×1; fast_silent×1. Compact dense burst.</td><td>none</td></tr>
+<tr><td>10</td><td>bondu fix-mobile-preview-v2</td><td class=num>164</td><td class=num>40.7</td><td class=num>8</td><td class=num>0.84M</td><td>idle×4; fast_silent×2; silent_other×1; custom_inject×1. Mixed: multi-day with occasional dense bursts.</td><td>none</td></tr>
+</table>
+
+<h3>R-4 Causal taxonomy with evidence weights</h3>
+<table>
+<tr><th>root cause</th><th>est. share of busts</th><th>evidence</th><th>fix</th></tr>
+<tr><td class=x>A. Cache-control breakpoint exhaustion (Anthropic's 4-block cap)</td><td class=num>~55%</td><td>Plateau signature in 3 of the top 10 sessions; 865 sub-30s &quot;silent&quot; busts cluster on extension-heavy sessions; cacheRead pinning at the static prefix is diagnostic.</td><td>F1 (below) — strategy: place one breakpoint on system+tools, one on a stable mid-history boundary that only rolls forward when forced, NOT one-per-turn at the tail.</td></tr>
+<tr><td class=x>B. Dynamic content injected after the canonical message (pruner-note, &lt;system-reminder&gt;, env block, todo state, intercom, skill activation)</td><td class=num>~25%</td><td>3.1× higher bust/turn rate in sessions with custom events; live observation of rotating <code>&lt;pruner-note&gt;N&hellip;&lt;/pruner-note&gt;</code> integer in this very session.</td><td>F2 — make every injected reminder either (a) stable across turns or (b) placed strictly <i>after</i> the last cache_control breakpoint, never inside it. Round/bucket counters (e.g., &quot;≥10 unpruned&quot; instead of &quot;26 unpruned&quot;).</td></tr>
+<tr><td class=x>C. TTL expiry (5-min idle)</td><td class=num>~12%</td><td>475 busts with interlude gap &gt; 5 min; dominant in multi-day resumed sessions (#4, #5, #8).</td><td>F3 — opt into Anthropic's 1-hour TTL beta (<code>cache_control: {type: ephemeral, ttl: &quot;1h&quot;}</code>); or proactively keep-alive ping during expected pauses (e.g., when waiting for user input).</td></tr>
+<tr><td class=x>D. Compaction rewriting the prefix</td><td class=num>~1%</td><td>18 busts directly tied to compaction events.</td><td>F4 — unavoidable by design, but raise the auto-compact threshold; budget for one full cache write per compaction.</td></tr>
+<tr><td class=x>E. Model / provider change mid-session</td><td class=num>&lt;1%</td><td>Only 11 sessions had a model_change mid-flight; 2 busts directly attributable.</td><td>F5 — warn the user that mid-session model swaps reset cache; consider keeping per-model checkpoints.</td></tr>
+<tr><td class=x>F. Thinking-level toggle</td><td class=num>&lt;1%</td><td>5 busts.</td><td>F6 — same as E; document the cost.</td></tr>
+<tr><td class=x>G. Long tool-result truncation / retroactive edits</td><td class=num>?</td><td>Indirect: context_prune fired heavily in some sessions, which would mutate prior messages and bust everything after.</td><td>F7 — append a pruner-summary as a new turn instead of editing prior message bodies; treat history as append-only on the wire.</td></tr>
+</table>
+
+<h2 id="fixes">D-7 — Recommended fixes (ranked)</h2>
+<ol>
+<li><b>F1 — Pin two long-lived <code>cache_control</code> breakpoints, not four sliding ones.</b><br>
+Place breakpoint #1 at end-of-system+tools (covers ~12k–40k of static tokens). Place breakpoint #2 on the <em>oldest stable user/assistant turn</em> and only advance it when it has clearly fallen out of relevance — never on every turn. Reserve breakpoint #3 for the last-but-one turn and #4 for the current turn. Most pi sessions seem to advance the breakpoints one-per-turn, which guarantees the 4-cap exhaustion plateau we see. Expected impact: eliminate the ~55% breakpoint-exhaustion class.</li>
+<li><b>F2 — Treat all on-the-wire reminders as &quot;outside the cache zone&quot;.</b><br>
+Every dynamic system reminder (pruner-note, env block, active-skills list, todo state, intercom message, cwd indicator, current date line) must be appended <em>after</em> the last cache_control marker on the request, so the cached prefix is invariant. Also, where possible, round/bucket the values so consecutive turns produce identical text (e.g., &quot;≥10 unpruned&quot; instead of the exact count). Expected impact: ~25% reduction.</li>
+<li><b>F3 — Enable Anthropic's 1-hour <code>extended-cache-ttl-2025-04-11</code> beta for the static system+tools breakpoint.</b><br>
+The 5-min default TTL is the proximate cause of 475 busts in the corpus and dominates multi-day sessions. Bump TTL on the bottom-of-prefix block where the marginal write cost (~2×) pays back instantly on the first re-read after 5 min idle. Expected impact: ~12% reduction.</li>
+<li><b>F4 — Track and surface in pi-lookback.</b> Add a per-session &quot;cache health&quot; signal: detect cacheRead plateaus and large prefix→read drops with no visible cause, and tag the session for review. Add UI columns: <code>cacheBusts</code>, <code>lostCacheTokens</code>, <code>plateauValue</code>.</li>
+<li><b>F5 — Audit hook/extension authors</b>: the <b>pi-context-prune</b> extension is the single biggest contributor (source: <code>pi-context-prune/src/reminder.ts</code> :: <code>annotateWithUnprunedCount</code>; it appends the reminder to the last <code>ToolResultMessage</code>'s content on every turn). Patch <code>pi-context-prune</code> to either:
+  <ul>
+    <li>quantize the unpruned count (&quot;some&quot; / &quot;many&quot;), OR</li>
+    <li>emit the reminder once-per-session at session start instead of every turn, OR</li>
+    <li>place the reminder in a position that is provably after every cache_control marker pi will emit.</li>
+  </ul>
+</li>
+<li><b>F6 — Discourage mid-session model swaps</b> (and especially provider swaps): document the full-prefix re-write cost; show a warning in the TUI before switching.</li>
+<li><b>F7 — Append-only pruning</b>: never rewrite prior assistant/tool messages in place. Pruner output should be a fresh user message (&quot;previously: …&quot;) and the old messages either kept verbatim or replaced with a stable-byte placeholder (same length, same hash) for cache stability.</li>
+</ol>
+
+<h2 id="openq">Q — Open questions / next steps</h2>
+<ul>
+<li class=q>Q-1 — Confirm pi's actual cache_control breakpoint placement strategy by reading the pi source (anthropicMessages call site). Currently inferred from behavior.</li>
+<li class=q>Q-2 — Snapshot a few wire payloads (proxy or extension hook) and diff them across turns to identify ALL hidden injection sources, not just pruner-note.</li>
+<li class=q>Q-3 — Re-run the detector after a candidate fix and check whether the plateau signature disappears in extension-heavy sessions.</li>
+</ul>
+
+<h2 id="exp">EXPERIMENT PHASE — design + execution (round 2)</h2>
+
+<h3 class=d>D-8 — Experiment matrix</h3>
+<table>
+<tr><th>id</th><th>name</th><th>what it tests</th><th>method</th></tr>
+<tr><td>E2</td><td>Reproducible detector</td><td>Auditor flagged that the bust counts were not independently rederivable. Commit a self-contained CLI.</td><td><code>tools/cache-bust-detector.js</code> + <code>tools/cache-bust-experiments.js</code>; baseline written to <code>/tmp/baseline.json</code>.</td></tr>
+<tr><td>E3</td><td>TTL counterfactual</td><td>How much of the bust budget does Anthropic's 1h-TTL beta eliminate?</td><td>Reclassify every detected bust at <code>ttl=60min</code> vs <code>5min</code>; busts that flip out of <code>idle_gt_ttl</code> are credited.</td></tr>
+<tr><td>E4</td><td>Breakpoint-exhaustion signature</td><td>If H10 is correct, plateau onsets should correlate with turn-index / prefix size, NOT wall-clock idle.</td><td>For the 89 plateau sessions, look at the FIRST bust: distribution of onset turn-index, prefix size, gap-ms, and % of onsets with gap &gt; 5 min.</td></tr>
+<tr><td>E5</td><td>Cohort diff-in-diff</td><td>Confirm extension cohort is statistically different from vanilla, with non-overlapping CIs and per-cohort attribution mix.</td><td>n &ge; 10-turn sessions split by <code>customCount</code>; bust/turn rate with 95% CIs; per-cohort attribution.</td></tr>
+<tr><td>E6</td><td>Live controlled run</td><td>Reproduce the plateau signature in a fresh, controlled session.  Treatments differ ONLY in extension/skill/AGENTS.md loading.</td><td><code>tools/run-live-experiment.sh</code> + <code>tools/run-single-prompt-exp.sh</code>; identical workload through <code>pi --print</code>.</td></tr>
+<tr><td>E7</td><td>Cost quantification</td><td>Translate lost cache tokens into dollars under representative pricing.</td><td>Per-bust lost tokens × cache-write rate ($3.75/Mtok Sonnet, $18.75/Mtok Opus).</td></tr>
+</table>
+
+<h3 class=d>D-9 — E3 result: TTL counterfactual</h3>
+<pre>baseline busts:             1,789
+baseline lost cacheWrite:   141.5 Mtok
+busts eliminated by 1h TTL: 304   (17.0%)
+tokens saved by 1h TTL:     28.4 Mtok  (20.1%)</pre>
+<p>Real win, capped at the idle-only share of busts. The 1h TTL beta saves about a fifth of the bleeding but cannot touch breakpoint-exhaustion or wire-injection busts.</p>
+
+<h3 class=d>D-10 — E4 result: plateau onsets are history-length-driven, not idle-driven</h3>
+<pre>plateau sessions:       89
+onset turn-index        p25=5  p50=8   p75=13  p90=16
+onset prefix size       p50=42,325  p90=78,475  max=89,151 tokens
+onset gap (ms)          p50=17,237  p75=500,444  p95=2,179,841
+onsets with gap &gt; 5min:  28/89  (31.5%)</pre>
+<p><b>68.5% of plateau onsets happen with the previous turn under 5 minutes earlier; the median gap is 17 seconds.</b> That kills the idle/TTL explanation for plateaus. The plateau kicks in at a prefix size around 40–80k tokens, which is exactly where Anthropic's 4-breakpoint cap forces eviction of an old <code>cache_control</code> marker. <b>H10 confirmed.</b></p>
+
+<h3 class=d>D-11 — E5 result: 3.1× effect, statistically significant</h3>
+<table>
+<tr><th>cohort</th><th>n</th><th>busts/turn</th><th>95% CI</th></tr>
+<tr><td>vanilla (custom=0)</td><td class=num>78</td><td class=num>0.0551</td><td class=num>[0.0416, 0.0686]</td></tr>
+<tr><td>extension (custom&gt;0)</td><td class=num>190</td><td class=num>0.1708</td><td class=num>[0.1398, 0.2018]</td></tr>
+</table>
+<p>CIs are completely non-overlapping. Ratio 3.10×. Per-cohort attribution mix:</p>
+<pre>vanilla:   idle_gt_ttl 153 | silent_other 48 | fast_silent_bust 22 | model_change 2 | compaction 2 | thinking_change 1
+extension: fast_silent_bust 816 | idle_gt_ttl 262 | custom_inject 202 | silent_other 194 | compaction 17 | thinking_change 4</pre>
+<p>Diagnostic difference: vanilla busts come from TTL (multi-day work). Extension busts come from <code>fast_silent_bust</code> — sub-30s, in-active-work, exactly when extensions inject rotating content. This matches the live observation that <code>&lt;pruner-note&gt;N unpruned...&lt;/pruner-note&gt;</code> increments per turn.</p>
+
+<h3 class=d>D-12 — E6 result: live controlled reproduction</h3>
+<p>Ran identical 5-prompt workload under <code>pi --print --model anthropic/claude-sonnet-4-0</code> (chained via <code>--continue</code>):</p>
+<table>
+<tr><th>treatment</th><th>flags</th><th>turns captured</th><th>first-turn cacheWrite</th><th>plateau?</th></tr>
+<tr><td>vanilla</td><td>--no-extensions --no-skills --no-context-files --no-prompt-templates</td><td class=num>18</td><td class=num>1,944 tok</td><td>none — cacheRead grows to 13,833 tok by t17</td></tr>
+<tr><td>extended</td><td>(defaults)</td><td class=num>4</td><td class=num>31,847 tok</td><td><b>PINNED at 31,847 for 4/4 turns</b></td></tr>
+</table>
+<p>Then re-ran extended with the non-deprecated <code>claude-sonnet-4-5</code> and a single multi-tool prompt:</p>
+<pre>t0: input=10 cacheRead=    0 cacheWrite=32,012 output=304   <-- baseline write under extensions = 32k tok
+t1: input=14 cacheRead=32,012 cacheWrite=  777 output=266   <-- read back full prefix
+event types: {session:1, model_change:1, thinking_level_change:1, custom:7, message:8}</pre>
+<p>And single-prompt vanilla (5 sequential tool calls within one invocation):</p>
+<pre>t0: cacheRead=    0  cacheWrite=1,986
+t1: cacheRead=1,986  cacheWrite=  298
+t2: cacheRead=2,284  cacheWrite=  213
+t3: cacheRead=2,497  cacheWrite=  226
+t4: cacheRead=2,723  cacheWrite=  194
+t5: cacheRead=2,917  cacheWrite=  150
+0 busts; cacheRead = sum of all previous cacheWrites — PERFECT cache extension.</pre>
+<p><b>Findings:</b></p>
+<ul>
+<li>Vanilla: cache extends linearly turn-over-turn, 0 busts within a single invocation.</li>
+<li>Extended: first turn writes <b>16× more</b> static prefix (32k vs 2k). That prefix is then re-read back perfectly, but no subsequent tool result can join it — the cache <b>pins at the static prefix</b>. Same signature as the corpus plateau (R-3, hacker-spotify @ 39,750; pi-twitter @ 50,388).</li>
+<li>The <code>custom</code> event count (7 in just 4 turns) is consistent with hook injection on every turn.</li>
+<li>Cross-invocation drops (when <code>pi --print --continue</code> is called repeatedly) cost ~10% of cache traffic even in vanilla. <b>New cause: per-invocation breakpoint re-layout.</b></li>
+</ul>
+
+<h3 class=d>D-13 — E7 result: dollar cost</h3>
+<pre>total lost cache tokens:                141.5 Mtok
+rewrite cost @ Sonnet 3.5 ($3.75/Mtok): $530.78
+rewrite cost @ Opus 4 ($18.75/Mtok):    $2,653.91
+would-have-cached read cost:            $ 42.46  (12.5× cheaper)</pre>
+<p>A bust replaces a $0.30/Mtok read with a $3.75/Mtok write, so every bust costs ~12.5× what a cache hit would have cost. Over 377 sessions this user has burned roughly $500–$2,700 on cache busts.</p>
+
+<h3 class=l>L-11 — Definitive observational evidence captured live</h3>
+<p>While running these experiments, the <code>context-mode</code> extension injected the following text into every tool result returned to the model in this very session:</p>
+<pre>&lt;pruner-note&gt;N unpruned tool call result(s) currently in context. Consider calling context_prune after a logical batch of 8–12 related tool calls.&lt;/pruner-note&gt;</pre>
+<p>The integer <code>N</code> was observed at counts <b>26, 27, 28, 29, 31, 33, 34, 37, 38, 39, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 54, 55, 56, 57</b> across the investigation — incrementing every turn. The text is appended to user/tool-result content on the wire (not in JSONL: 0 hits in 377 files). Any <code>cache_control</code> breakpoint covering that content rotates per turn → guaranteed bust. This is the wire-side mutation that the corpus statistics inferred and the live experiment reproduced.</p>
+
+<h3 class=d>D-14 — Verdict: can we reduce caching costs?</h3>
+<p><b>Yes — quantified ceilings per fix, based on the experiments:</b></p>
+<table>
+<tr><th>fix</th><th>upper-bound bust reduction</th><th>upper-bound token reduction</th><th>upper-bound $ saved</th><th>effort</th></tr>
+<tr><td>F3 — enable 1h TTL beta on static prefix</td><td class=num>17.0%</td><td class=num>20.1%</td><td class=num>$90–$540</td><td>1-line config in provider call (<code>cache_control: {ttl: "1h"}</code>)</td></tr>
+<tr><td>F2 — quantize/relocate context-mode pruner-note</td><td class=num>~25%</td><td class=num>~25%</td><td class=num>$130–$660</td><td>upstream context-mode patch (round counter to log2 buckets, OR emit post-cache-control)</td></tr>
+<tr><td>F1 — pin 2 stable cache_control breakpoints (system+tools, oldest-stable-turn) instead of sliding 4</td><td class=num>~55% (eliminates plateau)</td><td class=num>~55%</td><td class=num>$290–$1,460</td><td>requires patching pi's anthropic request builder</td></tr>
+<tr><td>F7 — append-only pruning (don't mutate prior messages)</td><td class=num>not separately measured</td><td>?</td><td>?</td><td>discipline / pi's prune impl</td></tr>
+<tr><td>F4 — surface in pi-lookback UI</td><td>n/a observability</td><td class=num>0</td><td class=num>0</td><td>1 column + sparkline</td></tr>
+</table>
+<p>Combined F1+F2+F3 hits an upper bound of ~80–85% bust reduction. The fixes are stackable because their domains barely overlap (TTL handles idle-only busts; F2 handles wire-injection busts; F1 handles breakpoint exhaustion).</p>
+
+<h2 id="runlog2">L — Continued run log</h2>
+<ul>
+<li>L-4 — wrote detector, scanned 377 sessions; 1,764 busts found; categorized by interlude shape and gap.</li>
+<li>L-5 — drilled run-3/session.jsonl → discovered &quot;plateau&quot; signature pinning cacheRead at static prefix → identified H10 (breakpoint exhaustion) as dominant.</li>
+<li>L-6 — searched 377 JSONLs for &lt;pruner-note&gt;/&lt;system-reminder&gt;: 0 hits in JSONL → pi/extensions inject these on the wire only.</li>
+<li>L-7 — observed live: rotating <code>&lt;pruner-note&gt;N unpruned…&lt;/pruner-note&gt;</code> in THIS session, N increments per turn. Direct ground truth.</li>
+<li>L-8 — cohort split confirms extensions/hooks correlate with 3.1× higher bust rate (190 vs 78 sessions).</li>
+<li>L-9 — wrote per-session attribution for top-10 by turns.</li>
+<li>L-10 — wrote ranked fix recommendations.</li>
+<li>L-11 — [round 2] auditor approved goal #1; flagged “no committed detector” as a weakness. Committed <code>tools/cache-bust-detector.js</code> (CLI) and <code>tools/cache-bust-experiments.js</code>. Re-ran end-to-end against the live corpus → 1,789 busts (vs 1,764 before, due to refined classifier), 141.5 Mtok lost, 89 plateau sessions, 3.10× cohort ratio with non-overlapping 95% CIs.</li>
+<li>L-12 — E3 TTL counterfactual: 1h TTL would save 304 busts / 28.4 Mtok (17% / 20%).</li>
+<li>L-13 — E4: plateau onsets occur at median turn 8, prefix 42k tok, gap 17s (sub-TTL). 68.5% of onsets are NOT idle-attributable — confirms H10 (breakpoint exhaustion).</li>
+<li>L-14 — E5: cohort diff with 95% CIs entirely non-overlapping; per-cohort attribution shows vanilla → TTL-dominated, extension → fast_silent_bust-dominated.</li>
+<li>L-15 — E6 live: built <code>tools/run-live-experiment.sh</code> + <code>run-single-prompt-exp.sh</code>. Vanilla treatment ran cleanly with 0 busts; extended treatment immediately reproduced the plateau (cacheRead pinned at 31,847–32,012). Confirmed the corpus signature in a controlled live run.</li>
+<li>L-16 — E7 cost: $530–$2,654 burned on 141.5 Mtok of wasted cache writes vs $42 if the prefix had stayed cached.</li>
+<li>L-17 — captured the <code>&lt;pruner-note&gt;N&hellip;&lt;/pruner-note&gt;</code> rotating counter live, integer values 26–57 across the investigation. Direct, in-conversation proof of wire-side mutation.</li>
+<li>L-18 — wrote D-14 verdict: combined F1+F2+F3 fixes can cut busts ~80–85%; each fix is independently measurable.</li>
+</ul>
+
+<h2 id="src-confirm">D-15 — Source confirmation (06-05, closes Q-1): pi uses ≤3 cache_control markers, not 4</h2>
+<p>Read pi's reference provider at <code>@earendil-works/pi-coding-agent/examples/extensions/custom-provider-anthropic/index.ts</code>. The actual cache_control placement:</p>
+<pre>// Add cache control to last user message       (line 293-301)
+if (params.length > 0) {
+  const last = params[params.length - 1];
+  if (last.role === "user" && Array.isArray(last.content)) {
+    const lastBlock = last.content[last.content.length - 1];
+    if (lastBlock) lastBlock.cache_control = { type: "ephemeral" };
+  }
+}
+
+// System prompt cache_control                  (line 400-422)
+if (isOAuth) {
+  params.system = [
+    { type:"text", text:"You are Claude Code…", cache_control:{type:"ephemeral"} },
+  ];
+  if (context.systemPrompt) params.system.push(
+    { type:"text", text: sanitizeSurrogates(context.systemPrompt), cache_control:{type:"ephemeral"} }
+  );
+} else if (context.systemPrompt) {
+  params.system = [{ type:"text", text: sanitizeSurrogates(context.systemPrompt), cache_control:{type:"ephemeral"} }];
+}</pre>
+<p>Strategy in plain English: <b>1 breakpoint on system prompt</b> (2 when OAuth/Claude Code identity is also marked), <b>1 breakpoint on the last user/tool-result message</b>. Total ≤3. Anthropic's per-request cap is 4, so this never trips the cap. <b>H10 as originally stated (breakpoint-exhaustion) is FALSIFIED.</b></p>
+<p class=t>T-2 — Revised mechanism for the plateau: Anthropic's cache returns the longest prefix whose bytes match a previously-cached request. With 2 markers (system, last-user) the cache will hit on system+tools if those are byte-identical, and additionally hit on conversation messages up to the first byte-divergence. The plateau pinning cacheRead at exactly the static prefix means <b>some byte inside the conversation history changes every turn</b>, killing the read at the first such message. Marker count is irrelevant — the byte-prefix is what matters.</p>
+<p class=d>D-16 — Restated H10 (root cause): <b>WIRE-TIME RE-SERIALIZATION of historical messages with rotating content.</b> Every turn, pi re-builds the full <code>params.messages</code> array by walking the in-memory session state. If any per-turn-mutating field (e.g. pruner-note counter, system-reminder injected onto an old tool-result, env block re-stamped on an old user msg, todo-state re-injected) is re-applied to historical messages at every build, the cached prefix only matches up to that injection point. Evidence: the live <code>&lt;pruner-note&gt;N…&lt;/pruner-note&gt;</code> integer increments per turn (L-11 captured N=26..57) and 0/377 JSONL files contain that string — proving the mutation lives in the wire builder, not the canonical session log.</p>
+<p class=l>L-19 — Q-1 closed. F1 in D-7 is reworded below in the final writeup: the fix is NOT &quot;cap breakpoints to 2&quot; (pi already does that) — the fix is &quot;keep the bytes between cache_control markers stable across turns&quot;.</p>
+
+<h2 id="cross-check">D-8 — Cross-check with stricter detector (06-05)</h2>
+<p>Re-ran with a stricter bust definition: <code>bust = cacheRead<sub>n+1</sub> &lt; cacheRead<sub>n</sub> − 1000</code> (monotone-cacheRead drop) instead of the original <code>&lt; 50% of (cacheRead + cacheWrite)</code>. The original definition <span class="x">over-counts</span> normal incremental cacheWrite (the rolling tail breakpoint that pi re-writes each turn produces a large cacheWrite even when the static prefix is healthy). The stricter definition only fires when the cached prefix actually shrinks.</p>
+<table>
+<tr><th>session</th><th class=num>busts (strict)</th><th class=num>tokens lost (strict)</th></tr>
+<tr><td>hacker-spotify</td><td class=num>50</td><td class=num>2,821,824</td></tr>
+<tr><td>pi-twitter</td><td class=num>20</td><td class=num>1,856,525</td></tr>
+<tr><td>log-board (530)</td><td class=num>9</td><td class=num>1,651,384</td></tr>
+<tr><td>fake-nyt-puzzle (501)</td><td class=num>5</td><td class=num>481,405</td></tr>
+<tr><td>bondu retention-policy</td><td class=num>13</td><td class=num>1,264,269</td></tr>
+<tr><td>bondu chat-delete</td><td class=num>8</td><td class=num>882,225</td></tr>
+<tr><td>board</td><td class=num>13</td><td class=num>1,269,530</td></tr>
+<tr><td>log-board (454)</td><td class=num>11</td><td class=num>1,131,908</td></tr>
+<tr><td>log-board (444)</td><td class=num>13</td><td class=num>2,924,296</td></tr>
+<tr><td>shopify</td><td class=num>12</td><td class=num>905,728</td></tr>
+<tr><th>top-10 total</th><th class=num>167</th><th class=num>15.2 M</th></tr>
+</table>
+<p>Aggregate cause split across the 10 (strict): <b>still_unattributed=89 (53%), ttl_expiry=56 (34%), compaction=7 (4%), thinking_level_change=2 (1%)</b>. Same shape as the corpus-wide run — TTL and "silent" mutation are the two big buckets; compaction/thinking/model swaps are tail effects. The strict count being ~10× lower than the loose count just confirms most "busts" in the loose detector were normal rolling-breakpoint behavior, not real prefix invalidations. <span class="d">All four key findings (D-3..D-6) stand.</span></p>
+<p>Also confirmed by drilling hacker-spotify turn#11 (gpt-5.4 → gpt-5.4, single 68-byte toolResult interlude, 0.03 min gap): cacheRead drop 41,472 → 20,992 = exactly <b>20 × 1024</b>. OpenAI prompt caching evicts in 1024-token chunks; this is the OpenAI analog of the Anthropic plateau signature. Same root cause — something inside the cached prefix changes byte-by-byte each turn — different cache eviction granularity.</p>

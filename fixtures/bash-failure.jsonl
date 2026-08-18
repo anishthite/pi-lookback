@@ -1,0 +1,4 @@
+{"type":"session","version":3,"id":"fixt-bash-failure","timestamp":"2026-06-04T00:00:00.000Z","cwd":"/tmp/fixt"}
+{"type":"message","id":"u1","parentId":null,"timestamp":"2026-06-04T00:00:01.000Z","message":{"role":"user","content":[{"type":"text","text":"run a bad command"}],"timestamp":1}}
+{"type":"message","id":"b1","parentId":"u1","timestamp":"2026-06-04T00:00:02.000Z","message":{"role":"bashExecution","command":"false","output":"","exitCode":1,"cancelled":false,"truncated":false,"timestamp":2}}
+{"type":"message","id":"b2","parentId":"b1","timestamp":"2026-06-04T00:00:03.000Z","message":{"role":"bashExecution","command":"false","output":"","exitCode":1,"cancelled":false,"truncated":false,"timestamp":3}}

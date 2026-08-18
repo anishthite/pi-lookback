@@ -1,0 +1,4 @@
+{"type":"session","version":3,"id":"fixt-unknown","timestamp":"2026-06-04T00:00:00.000Z","cwd":"/tmp/fixt"}
+{"type":"message","id":"u1","parentId":null,"timestamp":"2026-06-04T00:00:01.000Z","message":{"role":"user","content":[{"type":"text","text":"hi"}],"timestamp":1}}
+{"type":"future_event_type","id":"x1","parentId":"u1","timestamp":"2026-06-04T00:00:02.000Z","arbitraryField":"v"}
+{"type":"message","id":"a1","parentId":"x1","timestamp":"2026-06-04T00:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"ok"}],"stopReason":"end_turn","timestamp":3}}

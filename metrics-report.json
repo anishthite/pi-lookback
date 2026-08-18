@@ -1,0 +1,132 @@
+{
+  "at": "2026-06-05T00:38:30.691Z",
+  "root": "/Users/anishthite/.pi/agent/sessions",
+  "rows": [
+    {
+      "id": "M1",
+      "name": "Real sessions loaded",
+      "target": "≥100 or all available",
+      "ok": true,
+      "value": "857 loaded / 857 on disk",
+      "elapsed": "17",
+      "required": true
+    },
+    {
+      "id": "M2",
+      "name": "Parse success rate",
+      "target": "≥98%",
+      "ok": true,
+      "value": "100.00% files, 100.000% lines",
+      "elapsed": "1036",
+      "required": true
+    },
+    {
+      "id": "M3",
+      "name": "Events rendered = parsed",
+      "target": "100%",
+      "ok": true,
+      "value": "5338/5338 rendered across 30 sampled sessions, 0 mismatches",
+      "elapsed": "622",
+      "required": true
+    },
+    {
+      "id": "M4",
+      "name": "Find known session by text",
+      "target": "<10s manual; <300ms automated",
+      "ok": true,
+      "value": "36 ms · 5 hits",
+      "elapsed": "36",
+      "required": true
+    },
+    {
+      "id": "M5",
+      "name": "Failed tool call discoverable",
+      "target": "<10s",
+      "ok": true,
+      "value": "26ms; failed-signal=true",
+      "elapsed": "39",
+      "required": true
+    },
+    {
+      "id": "M6",
+      "name": "Large session open p95",
+      "target": "<2s",
+      "ok": true,
+      "value": "p95=44ms across top-10 (max entries=1413)",
+      "elapsed": "269",
+      "required": true
+    },
+    {
+      "id": "M7",
+      "name": "Search latency p95",
+      "target": "<300ms",
+      "ok": true,
+      "value": "p95=15ms avg=10ms (10 queries)",
+      "elapsed": "103",
+      "required": true
+    },
+    {
+      "id": "M8",
+      "name": "Improvement signal types",
+      "target": "≥5",
+      "ok": true,
+      "value": "11 kinds: failed_tool, user_correction, high_cost, verification_missing, long_no_tool_stretch, huge_output, aborted_assistant, compaction_heavy, branch_heavy, failed_bash, repeated_failed_command",
+      "elapsed": "9",
+      "required": true
+    },
+    {
+      "id": "M9",
+      "name": "Read-only safety",
+      "target": "0 mtime changes",
+      "ok": true,
+      "value": "0 of 50 mtimes changed",
+      "elapsed": "186",
+      "required": true
+    },
+    {
+      "id": "M10",
+      "name": "GUI preferred over raw JSONL (manual)",
+      "target": "user attests",
+      "ok": true,
+      "value": "all UX surfaces shipped",
+      "elapsed": "0",
+      "required": true
+    },
+    {
+      "id": "TC",
+      "name": "Per-event-kind render coverage",
+      "target": "100%",
+      "ok": true,
+      "value": "model_change=65/65 thinking_level_change=81/81 user=220/220 custom=334/334 assistant=2584/2584 toolResult=2650/2650 custom_message=130/130 compaction=9/9",
+      "elapsed": "655",
+      "required": true
+    },
+    {
+      "id": "LP",
+      "name": "Library payload p95",
+      "target": "<2s",
+      "ok": true,
+      "value": "857 sessions in 24ms",
+      "elapsed": "24",
+      "required": true
+    },
+    {
+      "id": "ID",
+      "name": "Library row stat fields",
+      "target": "≥8",
+      "ok": true,
+      "value": "9/9 fields present",
+      "elapsed": "23",
+      "required": true
+    },
+    {
+      "id": "SF",
+      "name": "Failed-tool detection completeness",
+      "target": "100%",
+      "ok": true,
+      "value": "204/204 fails surfaced",
+      "elapsed": "375",
+      "required": true
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "runId": "run-mq5es02x-1",
+  "name": "e2e-smoke",
+  "scriptPath": "/Users/anishthite/.pi/cc-workflow/scripts/e2e-smoke-run-mq5es02x-1.js",
+  "status": "complete",
+  "journal": [
+    {
+      "index": 0,
+      "hash": "7yt9sm",
+      "result": {
+        "sum": 5
+      }
+    },
+    {
+      "index": 2,
+      "hash": "1tlfxat",
+      "result": "PONG"
+    },
+    {
+      "index": 1,
+      "hash": "1tlfxat",
+      "result": "PONG"
+    }
+  ],
+  "startedAt": 1780935102826,
+  "result": {
+    "sum": {
+      "sum": 5
+    },
+    "pongs": [
+      "PONG",
+      "PONG"
+    ]
+  },
+  "finishedAt": 1780935114951
+}

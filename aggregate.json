@@ -1,0 +1,577 @@
+{
+  "sessions": 385,
+  "totalTokens": 1216907287,
+  "totalCost": 1950.996354700001,
+  "totalToolCalls": 14851,
+  "totalToolErrors": 581,
+  "totalUserTurns": 1254,
+  "totalAssistantTurns": 13631,
+  "totalDupConsecutive": 12,
+  "totalDupArgs": 537,
+  "totalFailedRetries": 681,
+  "totalLargeReads": 921,
+  "totalLargeToolResults": 62,
+  "totalHugeToolResults": 0,
+  "totalBashLongOutputs": 33,
+  "totalParallelBatches": 1364,
+  "totalSerialToolTurns": 10782,
+  "totalSubagentDispatches": 367,
+  "totalWorkflowDispatches": 0,
+  "totalAsyncDispatches": 49,
+  "totalAskUser": 210,
+  "totalTodo": 1462,
+  "totalGoalStales": 0,
+  "totalGoalCheckpoints": 26,
+  "toolUsage": {
+    "bash": 4818,
+    "write": 1236,
+    "read": 2816,
+    "edit": 1525,
+    "web_search": 66,
+    "ctx_fetch_and_index": 45,
+    "ctx_search": 117,
+    "ctx_execute": 799,
+    "ctx_execute_file": 126,
+    "ctx_batch_execute": 210,
+    "ctx_index": 18,
+    "grep": 344,
+    "ask_user_question": 210,
+    "chrome_navigate": 4,
+    "chrome_evaluate": 119,
+    "get_goal": 6,
+    "context_prune": 105,
+    "update_goal": 6,
+    "todo": 1462,
+    "subagent": 367,
+    "ls": 230,
+    "fetch_content": 27,
+    "get_search_content": 62,
+    "find_files": 5,
+    "find": 58,
+    "mcp": 23,
+    "lsp_diagnostics": 5,
+    "ast_grep_search": 1,
+    "code_search": 12,
+    "context_tree_query": 2,
+    "Bash": 1,
+    "goal_questionnaire": 2,
+    "propose_goal_draft": 2,
+    "chrome_tab": 19,
+    "chrome_launch": 1,
+    "chrome_scroll": 2
+  },
+  "toolErrors": {
+    "bash": 271,
+    "ctx_batch_execute": 14,
+    "ctx_fetch_and_index": 8,
+    "ctx_index": 2,
+    "ctx_execute": 50,
+    "ask_user_question": 47,
+    "edit": 96,
+    "read": 13,
+    "ctx_execute_file": 5,
+    "write": 3,
+    "grep": 3,
+    "ctx_search": 1,
+    "ls": 1,
+    "Bash": 1,
+    "context_prune": 3,
+    "todo": 18,
+    "subagent": 2,
+    "chrome_tab": 10,
+    "chrome_evaluate": 32,
+    "chrome_navigate": 1
+  },
+  "modelUsage": {
+    "claude-opus-4-7": 361,
+    "gpt-5.5": 20,
+    "claude-sonnet-4-6": 2,
+    "gpt-5.4": 2
+  },
+  "bySession": {
+    "errorRateTop": [
+      {
+        "file": "--Users-anishthite-workspace-bondu-bondu-monorepo-claude-lighthouse-model-improvements-GLS3N--/2026-05-15T19-13-49-172Z_019e2d0f-2a73-76cf-8c79-5f9b27d96e8d.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/bondu-monorepo-claude-lighthouse-model-improvements-GLS3N",
+        "prompt": "ok so we want to run admin console poitning at our local api (Ready on http://0.0.0.0:8787)",
+        "value": 0.3684210526315789,
+        "toolErrors": 7,
+        "toolCalls": 19
+      },
+      {
+        "file": "--Users-anishthite--/2026-06-05T04-15-34-395Z_019e95fe-57fb-79eb-bbfd-f687c055b85e.jsonl",
+        "cwd": "/Users/anishthite",
+        "prompt": "help me update node rq:  Update Requires Newer Node\n New version 0.78.1 is available. Pi 0.75.0 and newer require Node >= 22.19.0.\n Current Node is v20.19.6. Update Node, then run pi update again.\n Ch",
+        "value": 0.3333333333333333,
+        "toolErrors": 1,
+        "toolCalls": 3
+      },
+      {
+        "file": "--Users-anishthite-workspace-commiter--/2026-06-03T23-55-57-560Z_019e8fea-4cf8-7799-99ab-5a01b3683acb.jsonl",
+        "cwd": "/Users/anishthite/workspace/commiter",
+        "prompt": "let's make the github action run twice a day.",
+        "value": 0.3333333333333333,
+        "toolErrors": 1,
+        "toolCalls": 3
+      },
+      {
+        "file": "--Users-anishthite-workspace-pi-twitter--/2026-05-30T19-27-04-235Z_019e7a5a-b02b-7427-883c-2a2771a3d1ff.jsonl",
+        "cwd": "/Users/anishthite/workspace/pi-twitter",
+        "prompt": "come up with a cool tweet for https://github.com/anishthite/agent-dotfiles/tree/main based on the @anishthite style of tweets you can use pi-chrome to make the web calls",
+        "value": 0.2962962962962963,
+        "toolErrors": 8,
+        "toolCalls": 27
+      },
+      {
+        "file": "--Users-anishthite-workspace-hacker-spotify--/2026-06-04T19-21-35-467Z_019e9415-77eb-72df-abaa-120539873e7c.jsonl",
+        "cwd": "/Users/anishthite/workspace/hacker-spotify",
+        "prompt": "how do i run this",
+        "value": 0.25,
+        "toolErrors": 1,
+        "toolCalls": 4
+      },
+      {
+        "file": "--Users-anishthite-workspace-goals-analysis--/2026-06-04T20-20-41-337Z_019e944b-92f9-77c6-acdf-c293265b98f1.jsonl",
+        "cwd": "/Users/anishthite/workspace/goals-analysis",
+        "prompt": "[GOAL CONFIRMATION focus=goal]\nThe user invoked goal intent discussion (/goals). Help turn their request into a confirmed goal contract. Do NOT start substantive work yet.\n\nTopic the user provided:\n<g",
+        "value": 0.23529411764705882,
+        "toolErrors": 12,
+        "toolCalls": 51
+      },
+      {
+        "file": "--Users-anishthite--/2026-05-27T18-57-42-040Z_019e6acc-b898-7969-b4d6-f7dcfedaf8ba.jsonl",
+        "cwd": "/Users/anishthite",
+        "prompt": "ok so reinstall these: pi-subagents rpiv-ask-user-quest pi-web-access @juicesharp/rpiv-todo pi-context-prune pi-autoresearch  pi-fff and then tell me what are some other good pi packages based on what",
+        "value": 0.2222222222222222,
+        "toolErrors": 2,
+        "toolCalls": 9
+      },
+      {
+        "file": "--Users-anishthite-workspace-pi-lookback--/2026-06-06T15-31-20-382Z_019e9d8f-62be-7d8b-878b-8168c2449d6e.jsonl",
+        "cwd": "/Users/anishthite/workspace/pi-lookback",
+        "prompt": null,
+        "value": 0.19047619047619047,
+        "toolErrors": 4,
+        "toolCalls": 21
+      },
+      {
+        "file": "--Users-anishthite-workspace-pi-lookback--/2026-06-04T20-16-58-390Z_019e9448-2c16-75bb-9900-40dab7d974fe.jsonl",
+        "cwd": "/Users/anishthite/workspace/pi-lookback",
+        "prompt": "open it for me",
+        "value": 0.1746031746031746,
+        "toolErrors": 11,
+        "toolCalls": 63
+      },
+      {
+        "file": "--Users-anishthite--/2026-05-28T03-44-56-765Z_019e6caf-6dbd-7481-92fa-c26b01a454a6.jsonl",
+        "cwd": "/Users/anishthite",
+        "prompt": "compare these two for me:  │ @tintinweb/pi-subagents    │ Alt subagent implementation (Claude-Code style autonomous agents) — worth comparing to pi-subagents.                         │",
+        "value": 0.17073170731707318,
+        "toolErrors": 7,
+        "toolCalls": 41
+      }
+    ],
+    "dupArgsTop": [
+      {
+        "file": "--Users-anishthite-workspace-pi-twitter--/2026-06-02T23-19-23-510Z_019e8aa2-7676-7180-9b60-3ef275d92bae.jsonl",
+        "cwd": "/Users/anishthite/workspace/pi-twitter",
+        "prompt": "test pi chrome, does it work?",
+        "dupArgsAcrossCalls": 89,
+        "toolCalls": 317
+      },
+      {
+        "file": "--Users-anishthite-workspace-hacker-spotify--/2026-06-04T16-52-23-896Z_019e938c-e0d8-730c-b995-9deb58cef97d.jsonl",
+        "cwd": "/Users/anishthite/workspace/hacker-spotify",
+        "prompt": "look at the implementaiton notes, use any subagents you ened to, and continue to work until all the milestones are built ut and all the quantifiable metrics are reached. adn then test out the final pr",
+        "dupArgsAcrossCalls": 77,
+        "toolCalls": 414
+      },
+      {
+        "file": "--Users-anishthite-workspace-hacker-spotify--/2026-06-04T17-32-22-849Z_019e93b1-7bc0-7e20-96a9-2cc0a29e70bb.jsonl",
+        "cwd": "/Users/anishthite/workspace/hacker-spotify",
+        "prompt": "look at the implementaiton notes, use any subagents you ened to, and continue to work until all the milestones are built ut and all the quantifiable metrics are reached. adn then test out the final pr",
+        "dupArgsAcrossCalls": 36,
+        "toolCalls": 188
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-bondu-monorepo-anish-retention-policy--/2026-05-02T02-49-45-153Z_019de697-8dc0-71a3-b476-6ec9b0a17d17.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/bondu-monorepo-anish-retention-policy",
+        "prompt": "can you make this worktree checkout origin/anish/retention-policy and be that exactly? you can through away any local changes",
+        "dupArgsAcrossCalls": 25,
+        "toolCalls": 219
+      },
+      {
+        "file": "--Users-anishthite-workspace-mothers-day-2026--/2026-05-09T23-29-43-469Z_019e0f13-4c2a-738a-acd8-8060a8509c39.jsonl",
+        "cwd": "/Users/anishthite/workspace/mothers-day-2026",
+        "prompt": "help me come up with a cool spin on the zuma game for mothers day. i want to recreate it for my mom, but with a cool twist on it.",
+        "dupArgsAcrossCalls": 21,
+        "toolCalls": 149
+      },
+      {
+        "file": "--Users-anishthite-workspace-fake-nyt-puzzle--/2026-05-28T23-38-59-797Z_019e70f4-9d55-7743-93a0-193dc42c2217.jsonl",
+        "cwd": "/Users/anishthite/workspace/fake-nyt-puzzle",
+        "prompt": "ok i want to see all the games somewhere so i can like play all of them and see if they are good. and i think maybe its a good idea to make it easy for me to generate more of them so i can curate more",
+        "dupArgsAcrossCalls": 18,
+        "toolCalls": 278
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-28T07-17-52-693Z_019e6d72-5fb5-745f-93b3-59ae1d0d3525.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "how is the deployment for this looking?",
+        "dupArgsAcrossCalls": 13,
+        "toolCalls": 210
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-28T22-42-20-475Z_019e70c0-bebb-7d6b-a7f1-8cd1709804a8.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "how is the deployment for this looking?",
+        "dupArgsAcrossCalls": 13,
+        "toolCalls": 140
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-28T22-43-15-621Z_019e70c1-9625-7d51-ad2d-be4062611731.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "how is the deployment for this looking?",
+        "dupArgsAcrossCalls": 13,
+        "toolCalls": 143
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-28T22-44-28-861Z_019e70c2-b43d-7f45-8e10-c41e6e62e414.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "how is the deployment for this looking?",
+        "dupArgsAcrossCalls": 13,
+        "toolCalls": 147
+      }
+    ],
+    "failedRetriesTop": [
+      {
+        "file": "--Users-anishthite-workspace-pi-twitter--/2026-06-02T23-19-23-510Z_019e8aa2-7676-7180-9b60-3ef275d92bae.jsonl",
+        "cwd": "/Users/anishthite/workspace/pi-twitter",
+        "prompt": "test pi chrome, does it work?",
+        "failedRetries": 37,
+        "toolErrors": 38,
+        "toolCalls": 317
+      },
+      {
+        "file": "--Users-anishthite-workspace-hacker-spotify--/2026-06-04T16-52-23-896Z_019e938c-e0d8-730c-b995-9deb58cef97d.jsonl",
+        "cwd": "/Users/anishthite/workspace/hacker-spotify",
+        "prompt": "look at the implementaiton notes, use any subagents you ened to, and continue to work until all the milestones are built ut and all the quantifiable metrics are reached. adn then test out the final pr",
+        "failedRetries": 30,
+        "toolErrors": 30,
+        "toolCalls": 414
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-bondu-monorepo-anish-retention-policy--/2026-05-02T02-49-45-153Z_019de697-8dc0-71a3-b476-6ec9b0a17d17.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/bondu-monorepo-anish-retention-policy",
+        "prompt": "can you make this worktree checkout origin/anish/retention-policy and be that exactly? you can through away any local changes",
+        "failedRetries": 22,
+        "toolErrors": 14,
+        "toolCalls": 219
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-hours-bug-fix--/2026-04-29T22-16-58-462Z_019ddb51-195d-7102-bffa-b30d68df458d.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/hours-bug-fix",
+        "prompt": "look at our git stage/unstaged. what new tests are we adding in each file?",
+        "failedRetries": 17,
+        "toolErrors": 6,
+        "toolCalls": 115
+      },
+      {
+        "file": "--Users-anishthite-workspace-board--/2026-05-29T04-48-30-160Z_019e720f-f9d0-7dec-bd69-cf72f3674e17.jsonl",
+        "cwd": "/Users/anishthite/workspace/board",
+        "prompt": "make a mobile app now jus tliek the desktop part.",
+        "failedRetries": 16,
+        "toolErrors": 8,
+        "toolCalls": 138
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-28T07-17-52-693Z_019e6d72-5fb5-745f-93b3-59ae1d0d3525.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "how is the deployment for this looking?",
+        "failedRetries": 16,
+        "toolErrors": 9,
+        "toolCalls": 210
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-28T04-06-08-003Z_019e6cc2-d383-7a56-944b-c47d72cd4a89.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "pickup where we left off earleir",
+        "failedRetries": 13,
+        "toolErrors": 15,
+        "toolCalls": 258
+      },
+      {
+        "file": "--Users-anishthite--/2026-05-02T01-07-58-557Z_019de63a-5fdc-709a-915c-08644766adf2.jsonl",
+        "cwd": "/Users/anishthite",
+        "prompt": "find for me where contexts trial end date is stored on my mac",
+        "failedRetries": 12,
+        "toolErrors": 4,
+        "toolCalls": 33
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-19T01-28-35-701Z_019e3dd9-5c75-70be-bc44-4f3c59c1a072.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "our next issue is that the hero image isnt loading on mobile. i cant\n  replicate it on dektop using insepct element, only on actual mobile: Screenshot 2026-05-18 at 17.54.31.png",
+        "failedRetries": 12,
+        "toolErrors": 10,
+        "toolCalls": 213
+      },
+      {
+        "file": "--Users-anishthite-workspace-commiter--/2026-05-29T20-58-51-335Z_019e7588-5c47-7be1-b3b3-f7ff4b42ef73.jsonl",
+        "cwd": "/Users/anishthite/workspace/commiter",
+        "prompt": "do these changes: change the title to something better (title of the tab) dont have 004 for the day streak, make it just 4, and put it on the same line same horixzontal line for desktop, we have a lot",
+        "failedRetries": 12,
+        "toolErrors": 9,
+        "toolCalls": 147
+      }
+    ],
+    "costTop": [
+      {
+        "file": "--Users-anishthite-workspace-pi-twitter--/2026-06-02T23-19-23-510Z_019e8aa2-7676-7180-9b60-3ef275d92bae.jsonl",
+        "cwd": "/Users/anishthite/workspace/pi-twitter",
+        "prompt": "test pi chrome, does it work?",
+        "cost": 106.18592575,
+        "totalTokens": 35614042,
+        "toolCalls": 317
+      },
+      {
+        "file": "--Users-anishthite-workspace-pi-lookback--/2026-06-04T23-26-37-489Z_019e94f5-cdb1-7860-b3f9-d2db55fffb0e.jsonl",
+        "cwd": "/Users/anishthite/workspace/pi-lookback",
+        "prompt": "i want to do the same for claude code. should we extend it for this or make another one from a fresh start?",
+        "cost": 85.24981724999998,
+        "totalTokens": 15672107,
+        "toolCalls": 122
+      },
+      {
+        "file": "--Users-anishthite-workspace-hacker-spotify--/2026-06-04T16-52-23-896Z_019e938c-e0d8-730c-b995-9deb58cef97d.jsonl",
+        "cwd": "/Users/anishthite/workspace/hacker-spotify",
+        "prompt": "look at the implementaiton notes, use any subagents you ened to, and continue to work until all the milestones are built ut and all the quantifiable metrics are reached. adn then test out the final pr",
+        "cost": 77.11465424999994,
+        "totalTokens": 55039372,
+        "toolCalls": 414
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-20T17-40-13-450Z_019e4679-460a-7a90-9453-06bbde2882ae.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "ok, so make a plan for a nice sticky note style board. i want something like the one we have in the frontend folder,",
+        "cost": 47.87550625000004,
+        "totalTokens": 35570284,
+        "toolCalls": 216
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-hours-bug-fix--/2026-04-28T19-59-16-475Z_019dd5ac-abf9-70fc-88f9-b1e4f45a365f.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/hours-bug-fix",
+        "prompt": "help me understand how our subscription works. point me and take me on a tour through all our files, how everything works, etc.",
+        "cost": 45.1371425,
+        "totalTokens": 36742182,
+        "toolCalls": 136
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-28T04-06-08-003Z_019e6cc2-d383-7a56-944b-c47d72cd4a89.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "pickup where we left off earleir",
+        "cost": 41.555736249999995,
+        "totalTokens": 42213414,
+        "toolCalls": 258
+      },
+      {
+        "file": "--Users-anishthite-workspace-pi-lookback--/2026-06-05T00-02-22-666Z_019e9516-894a-7982-a207-c289e3b033a8.jsonl",
+        "cwd": "/Users/anishthite/workspace/pi-lookback",
+        "prompt": "i want to do the same for claude code. should we extend it for this or make another one from a fresh start?",
+        "cost": 40.70716825,
+        "totalTokens": 9617807,
+        "toolCalls": 97
+      },
+      {
+        "file": "--Users-anishthite-workspace-board--/2026-06-04T17-57-01-460Z_019e93c8-0b94-795b-9918-96dba782581e.jsonl",
+        "cwd": "/Users/anishthite/workspace/board",
+        "prompt": "i dont think we are coloring the notes anymore. analyze why, when it changed, why it changed and fix it",
+        "cost": 33.31603825,
+        "totalTokens": 14371945,
+        "toolCalls": 134
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-bondu-monorepo-anish-retention-policy--/2026-05-02T02-49-45-153Z_019de697-8dc0-71a3-b476-6ec9b0a17d17.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/bondu-monorepo-anish-retention-policy",
+        "prompt": "can you make this worktree checkout origin/anish/retention-policy and be that exactly? you can through away any local changes",
+        "cost": 28.579692250000004,
+        "totalTokens": 31044037,
+        "toolCalls": 219
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-bondu-monorepo-chat-delete-bug--/2026-05-08T20-43-28-627Z_019e0954-bbf3-717d-a6ae-fe5b797a7b99.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/bondu-monorepo-chat-delete-bug",
+        "prompt": "user reports: Can not delete previous messages from mobile appYou should be able to delete previous chats directly from the chat transcript; just tap the trash icon in the top right corner of the scre",
+        "cost": 25.27592650000001,
+        "totalTokens": 30131056,
+        "toolCalls": 220
+      }
+    ],
+    "serialOverParallelTop": [
+      {
+        "file": "--Users-anishthite-workspace-hacker-spotify--/2026-06-04T16-52-23-896Z_019e938c-e0d8-730c-b995-9deb58cef97d.jsonl",
+        "cwd": "/Users/anishthite/workspace/hacker-spotify",
+        "prompt": "look at the implementaiton notes, use any subagents you ened to, and continue to work until all the milestones are built ut and all the quantifiable metrics are reached. adn then test out the final pr",
+        "value": 280,
+        "serialToolTurns": 322,
+        "parallelBatches": 21,
+        "toolCalls": 414
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-bondu-monorepo-chat-delete-bug--/2026-05-08T20-43-28-627Z_019e0954-bbf3-717d-a6ae-fe5b797a7b99.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/bondu-monorepo-chat-delete-bug",
+        "prompt": "user reports: Can not delete previous messages from mobile appYou should be able to delete previous chats directly from the chat transcript; just tap the trash icon in the top right corner of the scre",
+        "value": 220,
+        "serialToolTurns": 220,
+        "parallelBatches": 0,
+        "toolCalls": 220
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-bondu-monorepo-anish-retention-policy--/2026-05-02T02-49-45-153Z_019de697-8dc0-71a3-b476-6ec9b0a17d17.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/bondu-monorepo-anish-retention-policy",
+        "prompt": "can you make this worktree checkout origin/anish/retention-policy and be that exactly? you can through away any local changes",
+        "value": 219,
+        "serialToolTurns": 219,
+        "parallelBatches": 0,
+        "toolCalls": 219
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-28T04-06-08-003Z_019e6cc2-d383-7a56-944b-c47d72cd4a89.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "pickup where we left off earleir",
+        "value": 212,
+        "serialToolTurns": 232,
+        "parallelBatches": 10,
+        "toolCalls": 258
+      },
+      {
+        "file": "--Users-anishthite-workspace-log-board--/2026-05-28T07-17-52-693Z_019e6d72-5fb5-745f-93b3-59ae1d0d3525.jsonl",
+        "cwd": "/Users/anishthite/workspace/log/board",
+        "prompt": "how is the deployment for this looking?",
+        "value": 210,
+        "serialToolTurns": 210,
+        "parallelBatches": 0,
+        "toolCalls": 210
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-19T01-28-35-701Z_019e3dd9-5c75-70be-bc44-4f3c59c1a072.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "our next issue is that the hero image isnt loading on mobile. i cant\n  replicate it on dektop using insepct element, only on actual mobile: Screenshot 2026-05-18 at 17.54.31.png",
+        "value": 167,
+        "serialToolTurns": 187,
+        "parallelBatches": 10,
+        "toolCalls": 213
+      },
+      {
+        "file": "--Users-anishthite-workspace-fake-nyt-puzzle--/2026-05-28T21-34-48-082Z_019e7082-e912-7125-afde-a9280d3a1ed1.jsonl",
+        "cwd": "/Users/anishthite/workspace/fake-nyt-puzzle",
+        "prompt": "ok so we want to make a fake site where we make ai generated ny times puzzles. so they look like puzzles the nyt would have but they aren't actualyl really puzzles. so first we shoudl compile a list (",
+        "value": 163,
+        "serialToolTurns": 163,
+        "parallelBatches": 0,
+        "toolCalls": 163
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-bondu-monorepo-fix-mobile-preview-v2--/2026-05-13T03-56-21-608Z_019e1f7a-7ce7-716d-a02c-c27e56f21a1c.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/bondu-monorepo-fix-mobile-preview-v2",
+        "prompt": "so code review gave these issues: 🔴 Blocking: mobile-release.yml breaks on the next release\napp.json is deleted in this PR, but .github/workflows/mobile-release.yml still reads and writes it in three",
+        "value": 156,
+        "serialToolTurns": 156,
+        "parallelBatches": 0,
+        "toolCalls": 156
+      },
+      {
+        "file": "--Users-anishthite-workspace-mothers-day-2026--/2026-05-09T23-29-43-469Z_019e0f13-4c2a-738a-acd8-8060a8509c39.jsonl",
+        "cwd": "/Users/anishthite/workspace/mothers-day-2026",
+        "prompt": "help me come up with a cool spin on the zuma game for mothers day. i want to recreate it for my mom, but with a cool twist on it.",
+        "value": 149,
+        "serialToolTurns": 149,
+        "parallelBatches": 0,
+        "toolCalls": 149
+      },
+      {
+        "file": "--Users-anishthite-workspace-commiter--/2026-05-29T20-58-51-335Z_019e7588-5c47-7be1-b3b3-f7ff4b42ef73.jsonl",
+        "cwd": "/Users/anishthite/workspace/commiter",
+        "prompt": "do these changes: change the title to something better (title of the tab) dont have 004 for the day streak, make it just 4, and put it on the same line same horixzontal line for desktop, we have a lot",
+        "value": 147,
+        "serialToolTurns": 147,
+        "parallelBatches": 0,
+        "toolCalls": 147
+      }
+    ],
+    "largeReadsTop": [
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-08T18-47-04-967Z_019e08ea-2c07-750e-ae56-a37f45abaef5/0f196306/run-1/session.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "Task: Run `.claude/skills/guide-editor/SKILL.md` over all guides in `.pi/guide-editor-reports/batch-10-manifest.txt`. For each canonical source `.mdx`, create/update `content/guides/<slug>.edited.mdx`",
+        "largeReadCount": 18,
+        "toolCalls": 69
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-08T18-47-04-967Z_019e08ea-2c07-750e-ae56-a37f45abaef5/add9a974/run-1/session.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "Task: Run `.claude/skills/guide-editor/SKILL.md` over all guides in `.pi/guide-editor-reports/batch-02-manifest.txt`. For each canonical source `.mdx`, create/update `content/guides/<slug>.edited.mdx`",
+        "largeReadCount": 17,
+        "toolCalls": 77
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-08T18-47-04-967Z_019e08ea-2c07-750e-ae56-a37f45abaef5/0f196306/run-0/session.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "Task: Run `.claude/skills/guide-editor/SKILL.md` over all guides in `.pi/guide-editor-reports/batch-09-manifest.txt`. For each canonical source `.mdx`, create/update `content/guides/<slug>.edited.mdx`",
+        "largeReadCount": 16,
+        "toolCalls": 72
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-hours-bug-fix--/2026-04-28T19-59-16-475Z_019dd5ac-abf9-70fc-88f9-b1e4f45a365f.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/hours-bug-fix",
+        "prompt": "help me understand how our subscription works. point me and take me on a tour through all our files, how everything works, etc.",
+        "largeReadCount": 15,
+        "toolCalls": 136
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-08T18-47-04-967Z_019e08ea-2c07-750e-ae56-a37f45abaef5/add9a974/run-0/session.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "Task: Run `.claude/skills/guide-editor/SKILL.md` over all guides in `.pi/guide-editor-reports/batch-01-manifest.txt`. For each canonical source `.mdx`, create/update `content/guides/<slug>.edited.mdx`",
+        "largeReadCount": 15,
+        "toolCalls": 48
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-08T18-47-04-967Z_019e08ea-2c07-750e-ae56-a37f45abaef5/add9a974/run-5/session.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "Task: Run `.claude/skills/guide-editor/SKILL.md` over all guides in `.pi/guide-editor-reports/batch-06-manifest.txt`. For each canonical source `.mdx`, create/update `content/guides/<slug>.edited.mdx`",
+        "largeReadCount": 15,
+        "toolCalls": 64
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-08T18-47-04-967Z_019e08ea-2c07-750e-ae56-a37f45abaef5/add9a974/run-3/session.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "Task: Run `.claude/skills/guide-editor/SKILL.md` over all guides in `.pi/guide-editor-reports/batch-04-manifest.txt`. For each canonical source `.mdx`, create/update `content/guides/<slug>.edited.mdx`",
+        "largeReadCount": 14,
+        "toolCalls": 67
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-08T18-47-04-967Z_019e08ea-2c07-750e-ae56-a37f45abaef5/0f196306/run-2/session.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "Task: Run `.claude/skills/guide-editor/SKILL.md` over all guides in `.pi/guide-editor-reports/batch-11-manifest.txt`. For each canonical source `.mdx`, create/update `content/guides/<slug>.edited.mdx`",
+        "largeReadCount": 13,
+        "toolCalls": 71
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-08T18-47-04-967Z_019e08ea-2c07-750e-ae56-a37f45abaef5/0f196306/run-3/session.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "Task: Run `.claude/skills/guide-editor/SKILL.md` over all guides in `.pi/guide-editor-reports/batch-12-manifest.txt`. For each canonical source `.mdx`, create/update `content/guides/<slug>.edited.mdx`",
+        "largeReadCount": 13,
+        "toolCalls": 70
+      },
+      {
+        "file": "--Users-anishthite-workspace-bondu-shopify-website--/2026-05-08T18-47-04-967Z_019e08ea-2c07-750e-ae56-a37f45abaef5/0f196306/run-4/session.jsonl",
+        "cwd": "/Users/anishthite/workspace/bondu/shopify-website",
+        "prompt": "Task: Run `.claude/skills/guide-editor/SKILL.md` over all guides in `.pi/guide-editor-reports/batch-13-manifest.txt`. For each canonical source `.mdx`, create/update `content/guides/<slug>.edited.mdx`",
+        "largeReadCount": 12,
+        "toolCalls": 62
+      }
+    ],
+    "hugeResultsTop": [],
+    "goalStalesTop": []
+  }
+}

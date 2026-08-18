@@ -1,0 +1,5 @@
+{"type":"session","version":3,"id":"fixt-branching","timestamp":"2026-06-04T00:00:00.000Z","cwd":"/tmp/fixt"}
+{"type":"message","id":"u1","parentId":null,"timestamp":"2026-06-04T00:00:01.000Z","message":{"role":"user","content":[{"type":"text","text":"try two approaches"}],"timestamp":1}}
+{"type":"message","id":"a1","parentId":"u1","timestamp":"2026-06-04T00:00:02.000Z","message":{"role":"assistant","content":[{"type":"text","text":"approach one"}],"stopReason":"end_turn","timestamp":2}}
+{"type":"message","id":"a2","parentId":"u1","timestamp":"2026-06-04T00:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"approach two"}],"stopReason":"end_turn","timestamp":3}}
+{"type":"message","id":"a3","parentId":"u1","timestamp":"2026-06-04T00:00:04.000Z","message":{"role":"assistant","content":[{"type":"text","text":"approach three"}],"stopReason":"end_turn","timestamp":4}}
