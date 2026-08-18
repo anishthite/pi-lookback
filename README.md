@@ -15,6 +15,35 @@ For every JSONL session under `~/.pi/agent/sessions/`:
 - **Search** — across user prompts, assistant text, tool names, tool arguments, bash commands, output previews, models, project paths.
 - **Export** — single self-contained HTML for any session.
 
+## Example: finding a failed file read
+
+Imagine a short session where the user asks the agent to read a file that does
+not exist. The session trace in pi-lookback looks like this:
+
+```text
+10:00:01  User       read file
+10:00:02  Assistant  read({ path: "/missing" })
+10:00:03  Tool       ENOENT: no such file   ← error
+```
+
+Its library row and session inspector make the important context visible at a
+glance:
+
+| Field | Value |
+| --- | --- |
+| Project | `/tmp/fixt` |
+| Duration | 3 seconds |
+| Events | 3 |
+| Tool calls | 1 |
+| Tool failures | 1 |
+| Review score | 4 |
+| Improvement signal | `Tool read returned error` |
+
+From there you can inspect the exact tool arguments and error output, search
+for related sessions or commands, jump between errors and signals, and export
+the session as a standalone HTML report. The app never modifies the original
+session files.
+
 ## Quick start
 
 ```bash
